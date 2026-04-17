@@ -2,9 +2,37 @@ import express from 'express';
 import { db } from '../db/index.js';
 import { users, posts, likes, comments, streaks } from '../db/schema.js';
 import { authenticateToken, type AuthRequest } from '../middleware/auth.js';
-import { eq, or, sql, desc } from 'drizzle-orm';
+import { eq, or, and, like, not, sql, desc } from 'drizzle-orm';
 
 const router = express.Router();
+
+// SEARCH Users
+router.get('/search', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const q = req.query.q as string;
+    const userId = req.user!.id;
+
+    if (!q) return res.json([]);
+
+    const results = await db.select({
+      id: users.id,
+      username: users.username,
+      avatarUrl: users.avatarUrl,
+      xp: users.xp
+    })
+    .from(users)
+    .where(and(
+      like(users.username, `%${q}%`),
+      not(eq(users.id, userId))
+    ))
+    .limit(10);
+
+    res.json(results);
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
 
 // GET /api/profile/:userId  (or /api/profile/me)
 router.get('/:userId', authenticateToken, async (req: AuthRequest, res) => {

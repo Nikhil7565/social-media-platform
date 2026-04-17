@@ -13,6 +13,9 @@ const Chat = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const myId = JSON.parse(localStorage.getItem('user') || '{}').id;
 
+  const [attachment, setAttachment] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     const fetchMessages = async () => {
       try {
@@ -24,6 +27,7 @@ const Chat = () => {
           setMessages(data.messages);
           setOtherUser(data.otherUser);
           setStreak(data.streak?.streakCount || 0);
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         }
       } catch (e) {
         console.error('Failed to load messages');
@@ -32,9 +36,21 @@ const Chat = () => {
     fetchMessages();
   }, [userId]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAttachment(reader.result as string);
+        showXPToast(1, 'Media Attached');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && !attachment) return;
     
     try {
       const res = await fetch(`/api/messages/${userId}`, {
@@ -43,13 +59,17 @@ const Chat = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ content: inputText })
+        body: JSON.stringify({ 
+          content: inputText,
+          imageUrl: attachment 
+        })
       });
       
       if (res.ok) {
         const newMsg = await res.json();
         setMessages([...messages, newMsg]);
         setInputText('');
+        setAttachment(null);
         showXPToast(2, 'Message sent!');
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         
@@ -68,7 +88,7 @@ const Chat = () => {
   const level = Math.floor(Math.sqrt((otherUser.xp || 0) / 50));
 
   return (
-    <div className="h-full flex flex-col pt-4">
+    <div className="h-full flex flex-col pt-4 overflow-hidden">
       {/* Header */}
       <div className="bg-black/60 backdrop-blur-xl border-b border-primary/30 py-3 px-4 flex items-center z-10">
         <button onClick={() => navigate(-1)} className="mr-4 text-gray-400 hover:text-white transition-colors">
@@ -92,7 +112,7 @@ const Chat = () => {
         {streak > 0 && (
           <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.15)]">
             <Flame className="w-4 h-4 text-amber-500 animate-pulse fill-amber-500/30" />
-            <span className="text-amber-500 font-bold text-sm tracking-wide">{streak} DAY STREAK</span>
+            <span className="text-amber-500 font-bold text-sm tracking-wide text-[10px]">{streak} DAY STREAK</span>
           </div>
         )}
       </div>
@@ -120,13 +140,16 @@ const Chat = () => {
                     </div>
                   )}
                   
-                  <div className={`p-3 relative shadow-md ${
+                  <div className={`p-2 relative shadow-md overflow-hidden ${
                     isMe 
                       ? 'bg-gradient-to-br from-primary to-violet-800 rounded-2xl rounded-br-sm' 
                       : 'bg-[rgba(255,255,255,0.05)] backdrop-blur-xl border border-white/10 rounded-2xl rounded-bl-sm'
                   }`}>
-                    <p className="text-[15px] leading-relaxed text-white/95">{msg.content}</p>
-                    <div className={`text-[10px] text-white/50 w-full flex items-center justify-end gap-1 mt-1 ${isMe ? '' : 'justify-end'}`}>
+                    {msg.imageUrl && (
+                      <img src={msg.imageUrl} alt="attachment" className="rounded-xl mb-2 max-w-full max-h-64 object-cover" />
+                    )}
+                    {msg.content && <p className="text-[14px] leading-relaxed text-white/95 px-1">{msg.content}</p>}
+                    <div className={`text-[9px] text-white/50 w-full flex items-center justify-end gap-1 mt-1`}>
                       {new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       {isMe && <span className="text-blue-400">✓✓</span>}
                     </div>
@@ -140,22 +163,49 @@ const Chat = () => {
       </div>
 
       {/* Input Area */}
-      <div className="bg-black/60 backdrop-blur-xl p-4 border-t border-primary/20 flex flex-col gap-2">
+      <div className="bg-black/60 backdrop-blur-xl p-4 border-t border-primary/20 flex flex-col gap-2 relative">
+        {attachment && (
+          <div className="absolute bottom-full left-4 mb-2 p-1 bg-white/10 backdrop-blur-md rounded-lg border border-white/20 animate-in fade-in slide-in-from-bottom-2">
+            <div className="relative">
+              <img src={attachment} className="h-20 w-20 object-cover rounded" />
+              <button 
+                onClick={() => setAttachment(null)}
+                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold"
+              >✕</button>
+            </div>
+          </div>
+        )}
+        
         <form onSubmit={handleSend} className="flex items-center gap-3">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileSelect} 
+            className="hidden" 
+            accept="image/*"
+          />
           <button type="button" className="text-gray-400 hover:text-accent transition-colors"><Smile className="w-6 h-6" /></button>
           <div className="flex-1 relative">
             <input 
               type="text" 
               value={inputText}
               onChange={e => setInputText(e.target.value)}
-              placeholder="Type a message..." 
+              placeholder={attachment ? "Add a caption..." : "Type a message..."}
               className="w-full bg-white/5 border border-white/10 rounded-full px-5 py-3 pr-10 text-white placeholder-gray-500 focus:border-primary/50 focus:bg-white/10 transition-all outline-none"
             />
-            <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+            <button 
+              type="button" 
+              onClick={() => fileInputRef.current?.click()}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors ${attachment ? 'text-primary' : 'text-gray-400 hover:text-white'}`}
+            >
               <Paperclip className="w-5 h-5" />
             </button>
           </div>
-          <button type="submit" disabled={!inputText.trim()} className="w-12 h-12 rounded-full bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-white shadow-[0_0_15px_rgba(124,58,237,0.4)] hover:shadow-[0_0_20px_rgba(56,189,248,0.6)] disabled:opacity-50 disabled:shadow-none transition-all">
+          <button 
+            type="submit" 
+            disabled={!inputText.trim() && !attachment} 
+            className="w-12 h-12 rounded-full bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-white shadow-[0_0_15px_rgba(124,58,237,0.4)] hover:shadow-[0_0_20px_rgba(56,189,248,0.6)] disabled:opacity-50 disabled:shadow-none transition-all"
+          >
             <Send className="w-5 h-5 ml-0.5" />
           </button>
         </form>

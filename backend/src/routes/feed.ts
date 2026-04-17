@@ -53,6 +53,50 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   }
 });
 
+// Get Reels Only
+router.get('/reels', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    console.log(`[REELS] User ${req.user!.id} requested reels...`);
+    const reelsPosts = await db.select({
+      id: posts.id,
+      videoUrl: posts.videoUrl,
+      postType: posts.postType,
+      caption: posts.caption,
+      createdAt: posts.createdAt,
+      user: {
+        id: users.id,
+        username: users.username,
+        avatarUrl: users.avatarUrl,
+        xp: users.xp
+      }
+    })
+    .from(posts)
+    .innerJoin(users, eq(posts.userId, users.id))
+    .where(eq(posts.postType, 'reel'))
+    .orderBy(desc(posts.createdAt))
+    .limit(20);
+
+    console.log(`[REELS] Found ${reelsPosts.length} reels in DB.`);
+
+    const augmentedReels = await Promise.all(reelsPosts.map(async (p) => {
+      const [likeCount] = await db.select({ count: sql<number>`count(*)` }).from(likes).where(eq(likes.postId, p.id));
+      const [commentCount] = await db.select({ count: sql<number>`count(*)` }).from(comments).where(eq(comments.postId, p.id));
+      const hasLiked = await db.select().from(likes).where(sql`${likes.postId} = ${p.id} AND ${likes.userId} = ${req.user!.id}`);
+
+      return {
+        ...p,
+        likes: Number(likeCount?.count ?? 0),
+        comments: Number(commentCount?.count ?? 0),
+        hasLiked: hasLiked.length > 0
+      };
+    }));
+
+    res.json(augmentedReels);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch reels' });
+  }
+});
+
 // Create Post (+10 XP)
 router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   try {

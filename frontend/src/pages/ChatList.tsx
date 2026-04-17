@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Search, Flame, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const ChatList = () => {
   const [conversations, setConversations] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -13,7 +17,6 @@ const ChatList = () => {
         });
         if (res.ok) {
           const data = await res.json();
-          // Map data to match the UI format expected by the template
           const formatted = data.map((conv: any) => {
             const timeDiff = Date.now() - new Date(conv.lastMessageAt).getTime();
             const minAgo = Math.floor(timeDiff / 60000);
@@ -26,7 +29,7 @@ const ChatList = () => {
             return {
               id: conv.id,
               user: conv.user,
-              lastMessage: 'Tap to view messages...', // We don't fetch lastMessage content in prototype
+              lastMessage: 'Tap to view messages...',
               timestamp: timeStr,
               streak: conv.streakCount
             };
@@ -40,18 +43,97 @@ const ChatList = () => {
     fetchConversations();
   }, []);
 
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (searchQuery.length < 2) {
+        setSearchResults([]);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/profile/search?q=${searchQuery}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data);
+        }
+      } catch (e) {
+        console.error('Search failed');
+      }
+    };
+
+    const debounce = setTimeout(fetchSearchResults, 300);
+    return () => clearTimeout(debounce);
+  }, [searchQuery]);
+
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4 h-full flex flex-col relative">
+    <div className="max-w-2xl mx-auto py-8 px-4 h-full flex flex-col relative overflow-hidden">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Messages</h1>
-        <button className="w-10 h-10 rounded-full glass-card flex items-center justify-center hover:bg-white/10 transition-colors">
-          <Search className="w-5 h-5" />
+        <button 
+          onClick={() => {
+            setIsSearching(!isSearching);
+            if (isSearching) setSearchQuery('');
+          }}
+          className={`w-10 h-10 rounded-full glass-card flex items-center justify-center transition-all ${isSearching ? 'bg-primary border-primary shadow-[0_0_15px_rgba(124,58,237,0.5)]' : 'hover:bg-white/10'}`}
+        >
+          <Search className="w-5 h-5 text-white" />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-2 pb-20 custom-scrollbar">
-        {conversations.length === 0 && (
-          <div className="text-center text-gray-500 mt-20">No messages yet. Start a conversation!</div>
+      <AnimatePresence>
+        {isSearching && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="mb-6 overflow-hidden"
+          >
+            <div className="relative">
+              <input 
+                autoFocus
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search any pulse in the sector..."
+                className="w-full bg-white/5 border border-primary/30 rounded-2xl px-5 py-4 pl-12 text-white placeholder-gray-500 focus:border-primary focus:bg-white/10 transition-all outline-none"
+              />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex-1 overflow-y-auto space-y-2 pb-20 custom-scrollbar relative">
+        {searchQuery.length >= 2 ? (
+          <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-accent mb-4 pl-1">Results Found</h2>
+            {searchResults.length === 0 ? (
+              <div className="text-center py-10 text-gray-500 italic text-sm">No matches found in this sector.</div>
+            ) : (
+              searchResults.map(user => (
+                <Link key={user.id} to={`/messages/${user.id}`} className="block mb-2">
+                  <div className="glass-card p-3 transition-all hover:bg-accent/10 hover:border-accent/50 cursor-pointer flex items-center gap-4 group">
+                    <img src={user.avatarUrl || `https://ui-avatars.com/api/?name=${user.username}&background=random`} className="w-12 h-12 rounded-full border-2 border-transparent group-hover:border-accent/50 transition-colors" />
+                    <div>
+                      <h3 className="font-bold text-white group-hover:text-accent transition-colors">{user.username}</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-500">LEVEL {Math.floor(Math.sqrt((user.xp || 0) / 50))}</span>
+                        <span className="text-[10px] text-accent font-bold uppercase tracking-wider">Start Chat</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            )}
+            <hr className="my-8 border-white/5" />
+          </div>
+        ) : null}
+
+        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-4 pl-1">Recent Pulses</h2>
+        
+        {conversations.length === 0 && searchQuery.length < 2 && (
+          <div className="text-center text-gray-500 mt-20 italic">Empty sector. Start a conversation!</div>
         )}
 
         {conversations.map(conv => (

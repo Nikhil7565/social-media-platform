@@ -83,12 +83,17 @@ router.post('/:otherUserId', authenticateToken, async (req: AuthRequest, res) =>
   try {
     const userId = req.user!.id;
     const otherUserId = Number(req.params.otherUserId);
-    const { content } = req.body;
-
+    const { content, imageUrl } = req.body;
+    
+    if (!content && !imageUrl) {
+      return res.status(400).json({ error: 'Message cannot be empty' });
+    }
+ 
     const [newMsg] = await db.insert(messages).values({
       senderId: userId,
       receiverId: otherUserId,
-      content
+      content: content || '',
+      imageUrl: imageUrl || null
     }).returning();
 
     if (!newMsg) throw new Error('Failed to send message');

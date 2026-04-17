@@ -4,8 +4,12 @@ import * as schema from './schema.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
+const url = process.env.DATABASE_URL || 'file:./sqlite.db';
+const authToken = process.env.DATABASE_AUTH_TOKEN;
+
 const client = createClient({
-  url: 'file:./sqlite.db',
+  url: url,
+  ...(authToken ? { authToken } : {}),
 });
 
 export const db = drizzle(client, { schema });
