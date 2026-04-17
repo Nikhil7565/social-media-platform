@@ -15,19 +15,19 @@ async function seedReels() {
     {
       userId: allUsers[0]!.id,
       postType: 'reel',
-      videoUrl: 'https://cdn.pixabay.com/video/2023/10/20/185834-876359239_large.mp4',
+      videoUrl: 'https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4',
       caption: 'Testing the new Kinetic Reels logic! The future is vertical. ⚡ #tech #reels',
     },
     {
       userId: allUsers[1]?.id || allUsers[0]!.id,
       postType: 'reel',
-      videoUrl: 'https://cdn.pixabay.com/video/2021/08/04/83946-583803027_large.mp4',
+      videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
       caption: 'This immersive UI is feeling amazing. Level up your content! 🚀 #gaming #kinetic',
     },
     {
       userId: allUsers[2]?.id || allUsers[0]!.id,
       postType: 'reel',
-      videoUrl: 'https://cdn.pixabay.com/video/2020/09/16/49968-457375204_large.mp4',
+      videoUrl: 'https://vjs.zencdn.net/v/oceans.mp4',
       caption: 'Sector 7 discovery. The aesthetic is real. 🌌 #vibes #sector7',
     }
   ];

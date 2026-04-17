@@ -50,99 +50,93 @@ const ReelItem = ({ reel, isActive }: { reel: Reel, isActive: boolean }) => {
   const level = Math.floor(Math.sqrt(reel.user.xp / 50));
 
   return (
-    <div className="relative h-full w-full bg-black snap-start overflow-hidden">
+    <div className="relative h-full w-full bg-black snap-start overflow-hidden flex items-center justify-center">
       {/* Video Content */}
       <video
         ref={videoRef}
-        src={reel.videoUrl}
-        className="h-full w-full object-cover"
+        className="h-full w-auto max-w-full object-contain z-0"
         loop
         playsInline
         muted
+        preload="auto"
         onClick={(e) => {
           const v = e.currentTarget;
-          v.paused ? v.play() : v.pause();
+          v.paused ? v.play().catch(() => {}) : v.pause();
         }}
-      />
+      >
+        <source src={reel.videoUrl} type="video/mp4" />
+      </video>
 
-      {/* Side Actions */}
-      <div className="absolute right-4 bottom-24 flex flex-col items-center gap-6 z-20">
-        <div className="flex flex-col items-center gap-1 group">
+      {/* Side Actions (Pattern Match) */}
+      <div className="absolute right-2 bottom-20 flex flex-col items-center gap-5 z-20">
+        <div className="flex flex-col items-center group">
           <button 
             onClick={handleLike}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${liked ? 'bg-red-500 scale-110 shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'bg-black/40 backdrop-blur-md hover:bg-black/60 border border-white/10'}`}
+            className="w-12 h-12 rounded-full flex items-center justify-center transition-all bg-[rgba(255,255,255,0.1)] backdrop-blur-3xl hover:bg-white/20 active:scale-90"
           >
-            <Heart className={`w-6 h-6 ${liked ? 'fill-white text-white' : 'text-white'}`} />
+            <Heart className={`w-7 h-7 ${liked ? 'fill-white text-white' : 'text-white'}`} />
           </button>
-          <span className="text-white text-[10px] font-black drop-shadow-md">{likesCount}</span>
+          <span className="text-white text-xs font-medium mt-1 drop-shadow-md">{likesCount >= 1000 ? (likesCount/1000).toFixed(1) + 'K' : likesCount}</span>
         </div>
 
-        <div className="flex flex-col items-center gap-1">
-          <button className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/10 hover:bg-black/60 transition-all">
-            <MessageCircle className="w-6 h-6 text-white" />
+        <div className="flex flex-col items-center group">
+          <button className="w-12 h-12 rounded-full flex items-center justify-center transition-all bg-[rgba(255,255,255,0.1)] backdrop-blur-3xl hover:bg-white/20 active:scale-90">
+            <Heart className="w-7 h-7 text-white rotate-180" /> {/* Simulate Dislike with inverted heart if Lucide Dislike is missing, but Lucide has ThumbsDown */}
           </button>
-          <span className="text-white text-[10px] font-black drop-shadow-md">{reel.comments}</span>
+          <span className="text-white text-xs font-medium mt-1 drop-shadow-md">Dislike</span>
         </div>
 
-        <div className="flex flex-col items-center gap-1">
-          <button className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/10 hover:bg-black/60 transition-all">
-            <Share2 className="w-6 h-6 text-white" />
+        <div className="flex flex-col items-center group">
+          <button className="w-12 h-12 rounded-full flex items-center justify-center transition-all bg-[rgba(255,255,255,0.1)] backdrop-blur-3xl hover:bg-white/20 active:scale-90">
+            <MessageCircle className="w-7 h-7 text-white fill-transparent" />
           </button>
-          <span className="text-white text-[10px] font-black drop-shadow-md font-bold uppercase tracking-wider">Share</span>
+          <span className="text-white text-xs font-medium mt-1 drop-shadow-md">{reel.comments}</span>
         </div>
 
-        <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border-2 border-primary/50 overflow-hidden animate-[spin_4s_linear_infinite]">
-          <Music2 className="w-6 h-6 text-white/50" />
+        <div className="flex flex-col items-center group">
+          <button className="w-12 h-12 rounded-full flex items-center justify-center transition-all bg-[rgba(255,255,255,0.1)] backdrop-blur-3xl hover:bg-white/20 active:scale-90">
+            <Share2 className="w-7 h-7 text-white" />
+          </button>
+          <span className="text-white text-xs font-medium mt-1 drop-shadow-md">Share</span>
+        </div>
+
+        <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-gray-800 to-gray-600 border-2 border-white/20 flex items-center justify-center relative mt-4 overflow-hidden group">
+          <div className="absolute inset-0 bg-primary/20 animate-pulse" />
+          <Music2 className="w-5 h-5 text-white z-10" />
         </div>
       </div>
 
-      {/* Bottom Content Overlay */}
-      <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10 pt-20">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="relative group cursor-pointer">
-            <img 
-              src={reel.user.avatarUrl || `https://ui-avatars.com/api/?name=${reel.user.username}&background=random`} 
-              className="w-11 h-11 rounded-full border-2 border-primary shadow-lg transition-transform group-hover:scale-105" 
-              alt="avatar"
-            />
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center border-2 border-black text-[10px] font-black">
-              L{level}
-            </div>
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="text-white font-black text-lg drop-shadow-md">{reel.user.username}</span>
-              <button className="bg-primary/20 hover:bg-primary/40 text-primary text-[10px] font-black px-2 py-0.5 rounded border border-primary/30 transition-colors uppercase tracking-widest">
-                Follow
-              </button>
-            </div>
-            <div className="flex items-center gap-2 text-white/70 text-xs">
-              <div className="flex items-center gap-1 text-accent">
-                <Flame className="w-3 h-3 fill-accent shadow-sm" />
-                <span className="font-bold">Trending</span>
-              </div>
-              <span className="opacity-50">#kinetic #future #sector7</span>
-            </div>
-          </div>
+      {/* Bottom Content Overlay (Pattern Match) */}
+      <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10 pt-20">
+        <div className="flex items-center gap-3 mb-3">
+          <img 
+            src={reel.user.avatarUrl || `https://ui-avatars.com/api/?name=${reel.user.username}&background=random`} 
+            className="w-10 h-10 rounded-full border border-white/30" 
+            alt="avatar"
+          />
+          <span className="text-white font-bold text-base drop-shadow-md">@{reel.user.username}</span>
+          <button className="bg-white text-black text-[11px] font-bold px-3 py-1.5 rounded-full transition-all hover:bg-gray-200">
+            Subscribe
+          </button>
         </div>
 
-        <p className="text-white/90 text-[15px] max-w-[85%] leading-relaxed drop-shadow-sm mb-2">
+        <p className="text-white text-sm max-w-[85%] leading-snug drop-shadow-sm mb-4 line-clamp-2">
           {reel.caption}
         </p>
 
-        <div className="flex items-center gap-2 text-white/60 text-[13px] bg-white/5 w-fit px-3 py-1 rounded-full border border-white/5 backdrop-blur-sm">
+        <div className="flex items-center gap-2 text-white text-[12px] bg-white/10 w-fit px-3 py-1.5 rounded-lg backdrop-blur-sm border border-white/5">
           <Music2 className="w-3 h-3" />
-          <span>Original Audio - {reel.user.username} Records</span>
+          <span className="truncate max-w-[150px]">Original sound - {reel.user.username}</span>
         </div>
       </div>
       
-      {/* Progress Bar */}
-      <div className="absolute bottom-0 left-0 h-[2px] bg-primary/30 w-full z-30">
+      {/* Progress Bar (Thin Red Line Pattern) */}
+      <div className="absolute bottom-0 left-0 h-[3px] bg-white/20 w-full z-40">
         <motion.div 
           initial={{ width: 0 }}
           animate={isActive ? { width: '100%' } : { width: 0 }}
           transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
-          className="h-full bg-gradient-to-r from-primary to-accent shadow-[0_0_10px_#7c3aed]"
+          className="h-full bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.8)]"
         />
       </div>
     </div>
@@ -168,9 +162,7 @@ const Reels = () => {
           return;
         }
 
-        const res = await fetch('/api/feed/reels', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const res = await fetch('/api/kinetic-reels');
         
         if (res.ok) {
           const data = await res.json();

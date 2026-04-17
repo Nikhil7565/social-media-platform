@@ -26,6 +26,75 @@ app.use((req, res, next) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/feed', feedRoutes);
+
+// KINETIC REELS - HIGH PRIORITY BYPASS
+import { db } from './db/index.js';
+import { posts, users, likes, comments } from './db/schema.js';
+import { eq, desc, sql } from 'drizzle-orm';
+app.get('/api/kinetic-reels', async (req, res) => {
+  try {
+    console.log('[KINETIC] Fetching reels from High Priority route...');
+    const reelsPosts = await db.select({
+      id: posts.id,
+      videoUrl: posts.videoUrl,
+      postType: posts.postType,
+      caption: posts.caption,
+      createdAt: posts.createdAt,
+      user: {
+        id: users.id,
+        username: users.username,
+        avatarUrl: users.avatarUrl,
+        xp: users.xp
+      }
+    })
+    .from(posts)
+    .innerJoin(users, eq(posts.userId, users.id))
+    .where(eq(posts.postType, 'reel'))
+    .orderBy(desc(posts.createdAt))
+    .limit(20);
+
+    const augmented = await Promise.all(reelsPosts.map(async (p) => {
+      const [lc] = await db.select({ c: sql<number>`count(*)` }).from(likes).where(eq(likes.postId, p.id));
+      const [cc] = await db.select({ c: sql<number>`count(*)` }).from(comments).where(eq(comments.postId, p.id));
+      return { ...p, likes: Number(lc?.c || 0), comments: Number(cc?.c || 0), hasLiked: false };
+    }));
+
+    res.json(augmented);
+  } catch (e) {
+    console.error('Bypass error:', e);
+    res.status(500).json({ error: 'Sector inaccessible' });
+  }
+});
+
+// REELS BYPASS (FORCE)
+app.get('/api/feed/reels', async (req, res) => {
+  try {
+    console.log('[FORCE REELS] Bypassing router and fetching reels...');
+    const reels = await db.select({
+      id: posts.id,
+      videoUrl: posts.videoUrl,
+      postType: posts.postType,
+      caption: posts.caption,
+      createdAt: posts.createdAt,
+      user: {
+        id: users.id,
+        username: users.username,
+        avatarUrl: users.avatarUrl,
+        xp: users.xp
+      }
+    })
+    .from(posts)
+    .innerJoin(users, eq(posts.userId, users.id))
+    .where(eq(posts.postType, 'reel'))
+    .orderBy(desc(posts.createdAt))
+    .limit(20);
+    
+    res.json(reels);
+  } catch (e) {
+    res.status(500).json({ error: 'Bypass failed' });
+  }
+});
+
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
