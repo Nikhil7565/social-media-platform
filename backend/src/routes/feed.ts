@@ -49,12 +49,12 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
       };
     }));
 
-    res.status(500).json({ error: 'Failed to fetch reels' });
+    res.json(augmentedFeed);
+  } catch (error) {
+    console.error('Feed error:', error);
+    res.status(500).json({ error: 'Failed to fetch feed' });
   }
 });
-
-// Get Feed
-router.get('/', authenticateToken, async (req: AuthRequest, res) => {
 
 // Create Post (+10 XP)
 router.post('/', authenticateToken, async (req: AuthRequest, res) => {

@@ -40,7 +40,7 @@ const frontendDistPath = path.join(__dirname, '../../frontend/dist');
 app.use(express.static(frontendDistPath));
 
 // Final Catch-All (MUST BE LAST)
-app.get('*', (req, res) => {
+app.get('/{*path}', (req, res) => {
   try {
     const indexPath = path.join(frontendDistPath, 'index.html');
     res.sendFile(indexPath);
