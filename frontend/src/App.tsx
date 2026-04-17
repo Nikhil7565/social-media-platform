@@ -6,7 +6,6 @@ import ChatList from './pages/ChatList';
 import Chat from './pages/Chat';
 import Leaderboard from './pages/Leaderboard';
 import Notifications from './pages/Notifications';
-import Reels from './pages/Reels';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import { XPToastContainer } from './components/XPToast';
@@ -40,7 +39,6 @@ function App() {
                 <Route path="/messages" element={<ChatList />} />
                 <Route path="/messages/:userId" element={<Chat />} />
                 <Route path="/leaderboard" element={<Leaderboard />} />
-                <Route path="/reels" element={<Reels />} />
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/profile/:userId" element={<Profile />} />

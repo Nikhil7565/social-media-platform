@@ -9,20 +9,20 @@ import { createNotification, notifyAllOtherUsers, checkLevelUp, checkRankChange 
 
 const router = express.Router();
 
-// DEBUG PING
-router.get('/ping', (req, res) => {
-  res.send('FEED_ALIVE');
-});
-
-// Get Reels Only (V1.1 - Priority)
-router.get('/reels', authenticateToken, async (req: AuthRequest, res) => {
+// Get following feed
+router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    console.log(`[REELS V1.1] User ${req.user!.id} requested reels...`);
-    const reelsPosts = await db.select({
+    const userId = req.user!.id;
+    
+    // Fetch posts from users the current user follows (or all if no follows)
+    // For now, returning all posts as a simple feed
+    const feedPosts = await db.select({
       id: posts.id,
+      caption: posts.caption,
+      imageUrl: posts.imageUrl,
       videoUrl: posts.videoUrl,
       postType: posts.postType,
-      caption: posts.caption,
+      themeName: posts.themeName,
       createdAt: posts.createdAt,
       user: {
         id: users.id,
@@ -33,16 +33,13 @@ router.get('/reels', authenticateToken, async (req: AuthRequest, res) => {
     })
     .from(posts)
     .innerJoin(users, eq(posts.userId, users.id))
-    .where(eq(posts.postType, 'reel'))
     .orderBy(desc(posts.createdAt))
-    .limit(20);
+    .limit(50);
 
-    console.log(`[REELS] Found ${reelsPosts.length} reels in DB.`);
-
-    const augmentedReels = await Promise.all(reelsPosts.map(async (p) => {
+    const augmentedFeed = await Promise.all(feedPosts.map(async (p) => {
       const [likeCount] = await db.select({ count: sql<number>`count(*)` }).from(likes).where(eq(likes.postId, p.id));
       const [commentCount] = await db.select({ count: sql<number>`count(*)` }).from(comments).where(eq(comments.postId, p.id));
-      const hasLiked = await db.select().from(likes).where(sql`${likes.postId} = ${p.id} AND ${likes.userId} = ${req.user!.id}`);
+      const hasLiked = await db.select().from(likes).where(sql`${likes.postId} = ${p.id} AND ${likes.userId} = ${userId}`);
 
       return {
         ...p,
@@ -52,8 +49,6 @@ router.get('/reels', authenticateToken, async (req: AuthRequest, res) => {
       };
     }));
 
-    res.json(augmentedReels);
-  } catch (error) {
     res.status(500).json({ error: 'Failed to fetch reels' });
   }
 });

@@ -1,5 +1,5 @@
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Home, MessageSquare, PlusSquare, Bell, Trophy, LogOut, Film } from 'lucide-react';
+import { Home, MessageSquare, PlusSquare, Bell, Trophy, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 import BrandLogo from './BrandLogo';
@@ -47,7 +47,6 @@ const Sidebar = ({ setIsAuthenticated }: { setIsAuthenticated: (b: boolean) => v
 
   const navItems = [
     { name: 'Feed', path: '/', icon: Home, badge: 0 },
-    { name: 'Reels', path: '/reels', icon: Film, badge: 0 },
     { name: 'Messages', path: '/messages', icon: MessageSquare, badge: unreadMessages },
     { name: 'Create', path: '/create', icon: PlusSquare, badge: 0 },
     { name: 'Alerts', path: '/notifications', icon: Bell, badge: unreadAlerts },
