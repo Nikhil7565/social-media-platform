@@ -47,6 +47,7 @@ router.get('/:userId', authenticateToken, async (req: AuthRequest, res) => {
       avatarUrl: users.avatarUrl,
       bio: users.bio,
       xp: users.xp,
+      profileTheme: users.profileTheme,
       createdAt: users.createdAt,
     }).from(users).where(eq(users.id, userId));
 
@@ -87,14 +88,16 @@ router.put('/', authenticateToken, async (req: AuthRequest, res) => {
 
     await db.update(users).set({
       avatarUrl: avatarUrl !== undefined ? avatarUrl : undefined,
-      bio: bio !== undefined ? bio : undefined
+      bio: bio !== undefined ? bio : undefined,
+      profileTheme: req.body.profileTheme !== undefined ? req.body.profileTheme : undefined
     }).where(eq(users.id, userId));
 
     const [updatedUser] = await db.select({
       id: users.id,
       username: users.username,
       avatarUrl: users.avatarUrl,
-      bio: users.bio
+      bio: users.bio,
+      profileTheme: users.profileTheme
     }).from(users).where(eq(users.id, userId));
 
     res.json(updatedUser);

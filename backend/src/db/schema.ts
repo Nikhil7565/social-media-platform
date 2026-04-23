@@ -9,6 +9,7 @@ export const users = sqliteTable('users', {
   avatarUrl: text('avatar_url'),
   bio: text('bio'),
   xp: integer('xp').notNull().default(0),
+  profileTheme: text('profile_theme').notNull().default('default'),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
