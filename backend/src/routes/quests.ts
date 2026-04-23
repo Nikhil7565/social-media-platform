@@ -73,7 +73,7 @@ router.get('/daily', authenticateToken, async (req: AuthRequest, res) => {
 router.post('/claim/:questId', authenticateToken, async (req: AuthRequest, res) => {
     try {
         const userId = req.user!.id;
-        const questId = req.params.questId!;
+        const questId = req.params.questId as string;
         const date = new Date().toISOString().split('T')[0]!;
 
         const [mission] = await db.select({
@@ -110,7 +110,7 @@ router.post('/claim/:questId', authenticateToken, async (req: AuthRequest, res) 
             await tx.insert(notifications).values({
                 userId,
                 type: 'milestone',
-                actorId: 1, // System
+                actorId: userId, // Self (System equivalent)
                 referenceId: 0,
                 data: mission.rewardXp,
                 isRead: false
@@ -119,6 +119,7 @@ router.post('/claim/:questId', authenticateToken, async (req: AuthRequest, res) 
 
         res.json({ success: true, rewardXp: mission.rewardXp });
     } catch (error) {
+        console.error('Claim reward error:', error);
         res.status(500).json({ error: 'Failed to claim reward' });
     }
 });
