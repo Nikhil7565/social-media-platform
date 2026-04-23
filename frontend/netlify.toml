@@ -1,6 +1,6 @@
 [[redirects]]
   from = "/api/*"
-  to = "https://social-media-platform-backend-fbp5d.onrender.com/api/:splat"
+  to = "https://social-media-platform-m9bc.onrender.com/api/:splat"
   status = 200
   force = true
 
