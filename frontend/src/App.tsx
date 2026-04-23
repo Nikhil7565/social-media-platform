@@ -9,6 +9,7 @@ import Notifications from './pages/Notifications';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import { XPToastContainer } from './components/XPToast';
+import ModernVectorBackground from './components/ModernVectorBackground';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -21,7 +22,7 @@ function App() {
   return (
     <Router>
       <XPToastContainer />
-      <div className="fixed-bg"></div>
+      <ModernVectorBackground />
       <div className="flex h-screen overflow-hidden text-white w-full">
         {isAuthenticated && <Sidebar setIsAuthenticated={setIsAuthenticated} />}
         

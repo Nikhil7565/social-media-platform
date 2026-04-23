@@ -23,6 +23,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
       videoUrl: posts.videoUrl,
       postType: posts.postType,
       themeName: posts.themeName,
+      impactScore: posts.impactScore,
       createdAt: posts.createdAt,
       user: {
         id: users.id,
@@ -55,6 +56,52 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
     res.status(500).json({ error: 'Failed to fetch feed' });
   }
 });
+
+// Get Trending / Breaking News (+ High Impact)
+router.get('/trending', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.id;
+    const trendingPosts = await db.select({
+      id: posts.id,
+      caption: posts.caption,
+      imageUrl: posts.imageUrl,
+      videoUrl: posts.videoUrl,
+      postType: posts.postType,
+      themeName: posts.themeName,
+      impactScore: posts.impactScore,
+      createdAt: posts.createdAt,
+      user: {
+        id: users.id,
+        username: users.username,
+        avatarUrl: users.avatarUrl,
+        xp: users.xp
+      }
+    })
+    .from(posts)
+    .innerJoin(users, eq(posts.userId, users.id))
+    .where(or(eq(posts.postType, 'news'), sql`${posts.impactScore} > 50`))
+    .orderBy(desc(posts.impactScore), desc(posts.createdAt))
+    .limit(20);
+
+    const augmented = await Promise.all(trendingPosts.map(async (p) => {
+      const [likeCount] = await db.select({ count: sql<number>`count(*)` }).from(likes).where(eq(likes.postId, p.id));
+      const [commentCount] = await db.select({ count: sql<number>`count(*)` }).from(comments).where(eq(comments.postId, p.id));
+      const hasLiked = await db.select().from(likes).where(sql`${likes.postId} = ${p.id} AND ${likes.userId} = ${userId}`);
+
+      return {
+        ...p,
+        likes: Number(likeCount?.count ?? 0),
+        comments: Number(commentCount?.count ?? 0),
+        hasLiked: hasLiked.length > 0
+      };
+    }));
+
+    res.json(augmented);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch trending' });
+  }
+});
+
 
 // Create Post (+10 XP)
 router.post('/', authenticateToken, async (req: AuthRequest, res) => {
@@ -106,6 +153,9 @@ router.post('/:id/like', authenticateToken, async (req: AuthRequest, res) => {
 
     await db.insert(likes).values({ postId, userId });
     
+    // Update Impact Score (+10 for like)
+    await db.update(posts).set({ impactScore: sql`${posts.impactScore} + 10` }).where(eq(posts.id, postId));
+
     // Reward XP and check Level Up
     const [userRecord] = await db.select({ xp: users.xp }).from(users).where(eq(users.id, userId));
     const oldXp = userRecord?.xp || 0;
@@ -113,6 +163,7 @@ router.post('/:id/like', authenticateToken, async (req: AuthRequest, res) => {
     await db.update(users).set({ xp: newXp }).where(eq(users.id, userId));
     await checkLevelUp(userId, oldXp, newXp);
     await checkRankChange(userId);
+
 
     // Create notification for post owner
     const [post] = await db.select().from(posts).where(eq(posts.id, postId));
@@ -141,6 +192,9 @@ router.post('/:id/comment', authenticateToken, async (req: AuthRequest, res) => 
 
     if (!newComment) throw new Error('Comment creation failed');
 
+    // Update Impact Score (+25 for comment)
+    await db.update(posts).set({ impactScore: sql`${posts.impactScore} + 25` }).where(eq(posts.id, postId));
+
     // Reward XP and check Level Up
     const [userRecord] = await db.select({ xp: users.xp }).from(users).where(eq(users.id, userId));
     const oldXp = userRecord?.xp || 0;
@@ -148,6 +202,7 @@ router.post('/:id/comment', authenticateToken, async (req: AuthRequest, res) => 
     await db.update(users).set({ xp: newXp }).where(eq(users.id, userId));
     await checkLevelUp(userId, oldXp, newXp);
     await checkRankChange(userId);
+
 
     // Notification
     const [post] = await db.select().from(posts).where(eq(posts.id, postId));
@@ -159,6 +214,34 @@ router.post('/:id/comment', authenticateToken, async (req: AuthRequest, res) => 
   } catch (error) {
     console.error('Comment error:', error);
     res.status(500).json({ error: 'Failed to comment' });
+  }
+});
+
+// Get comments for a post
+router.get('/:id/comments', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const postId = Number(req.params.id);
+    
+    const postComments = await db.select({
+      id: comments.id,
+      content: comments.content,
+      createdAt: comments.createdAt,
+      user: {
+        id: users.id,
+        username: users.username,
+        avatarUrl: users.avatarUrl,
+        xp: users.xp
+      }
+    })
+    .from(comments)
+    .innerJoin(users, eq(comments.userId, users.id))
+    .where(eq(comments.postId, postId))
+    .orderBy(desc(comments.createdAt));
+
+    res.json(postComments);
+  } catch (error) {
+    console.error('Fetch comments error:', error);
+    res.status(500).json({ error: 'Failed to fetch comments' });
   }
 });
 

@@ -20,6 +20,7 @@ export const posts = sqliteTable('posts', {
   videoUrl: text('video_url'),
   caption: text('caption'),
   themeName: text('theme_name'),
+  impactScore: integer('impact_score').notNull().default(0),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -58,13 +59,22 @@ export const streaks = sqliteTable('streaks', {
   lastMessageAt: text('last_message_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const achievements = sqliteTable('achievements', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').references(() => users.id).notNull(),
+  type: text('type').notNull(), // 'xp_milestone', 'streak_milestone', 'rank_one'
+  value: integer('value').notNull(),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const notifications = sqliteTable('notifications', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: integer('user_id').references(() => users.id).notNull(),
-  type: text('type').notNull(), // 'like', 'comment', 'message', 'streak'
+  type: text('type').notNull(), // 'like', 'comment', 'message', 'streak', 'milestone'
   actorId: integer('actor_id').references(() => users.id).notNull(),
   referenceId: integer('reference_id'),
   data: integer('data'),
   isRead: integer('is_read', { mode: 'boolean' }).default(false),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
 });
+

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Flame, Paperclip, Send, Smile } from 'lucide-react';
 import { showXPToast } from '../components/XPToast';
+import PremiumEmojiPicker from '../components/PremiumEmojiPicker';
 
 const Chat = () => {
   const { userId } = useParams();
@@ -14,6 +15,8 @@ const Chat = () => {
   const myId = JSON.parse(localStorage.getItem('user') || '{}').id;
 
   const [attachment, setAttachment] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [emojiTrigger, setEmojiTrigger] = useState<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -146,8 +149,15 @@ const Chat = () => {
                       : 'bg-[rgba(255,255,255,0.05)] backdrop-blur-xl border border-white/10 rounded-2xl rounded-bl-sm'
                   }`}>
                     {msg.imageUrl && (
-                      <img src={msg.imageUrl} alt="attachment" className="rounded-xl mb-2 max-w-full max-h-64 object-cover" />
+                      <div className="relative group">
+                        <img 
+                          src={msg.imageUrl} 
+                          alt="attachment" 
+                          className="rounded-xl mb-2 max-w-full hd-quality object-contain bg-black/10 transition-all hover:brightness-110 shadow-lg" 
+                        />
+                      </div>
                     )}
+
                     {msg.content && <p className="text-[14px] leading-relaxed text-white/95 px-1">{msg.content}</p>}
                     <div className={`text-[9px] text-white/50 w-full flex items-center justify-end gap-1 mt-1`}>
                       {new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
@@ -184,7 +194,28 @@ const Chat = () => {
             className="hidden" 
             accept="image/*"
           />
-          <button type="button" className="text-gray-400 hover:text-accent transition-colors"><Smile className="w-6 h-6" /></button>
+          <div className="relative">
+            <button 
+              type="button" 
+              onClick={(e) => {
+                setEmojiTrigger(e.currentTarget);
+                setShowEmojiPicker(!showEmojiPicker);
+              }}
+              className={`${showEmojiPicker ? 'text-primary' : 'text-gray-400'} hover:text-accent transition-colors`}
+            >
+              <Smile className="w-6 h-6" />
+            </button>
+            
+            <PremiumEmojiPicker 
+              isOpen={showEmojiPicker} 
+              onClose={() => setShowEmojiPicker(false)}
+              triggerElement={emojiTrigger}
+              onEmojiSelect={(emoji) => {
+                setInputText(prev => prev + emoji);
+                setShowEmojiPicker(false);
+              }}
+            />
+          </div>
           <div className="flex-1 relative">
             <input 
               type="text" 
