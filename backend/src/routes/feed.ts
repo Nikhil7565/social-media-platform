@@ -6,6 +6,7 @@ import { authenticateToken, type AuthRequest } from '../middleware/auth.js';
 import { eq, or, sql, desc, ne, and } from 'drizzle-orm';
 import { XP_REWARDS } from '../utils/gamification.js';
 import { createNotification, notifyAllOtherUsers, checkLevelUp, checkRankChange } from '../utils/notifications.js';
+import { updateQuestProgress } from '../utils/quests.js';
 
 const router = express.Router();
 
@@ -122,6 +123,9 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
     // Global Notification
     await notifyAllOtherUsers(userId, 'new_post', newPost.id);
 
+    // Update Quests
+    await updateQuestProgress(userId, 'POST');
+
     res.json(newPost);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create post' });
@@ -161,6 +165,9 @@ router.post('/:id/like', authenticateToken, async (req: AuthRequest, res) => {
       await createNotification(post.userId, userId, 'like', postId);
     }
 
+    // Update Quests
+    await updateQuestProgress(userId, 'LIKE');
+
     res.json({ liked: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to like post' });
@@ -199,6 +206,9 @@ router.post('/:id/comment', authenticateToken, async (req: AuthRequest, res) => 
     if (post && post.userId !== userId) {
       await createNotification(post.userId, userId, 'comment', postId);
     }
+
+    // Update Quests
+    await updateQuestProgress(userId, 'COMMENT');
     
     res.json(newComment);
   } catch (error) {

@@ -79,3 +79,25 @@ export const notifications = sqliteTable('notifications', {
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const quests = sqliteTable('quests', {
+  id: text('id').primaryKey(), // e.g., 'POST_3', 'LIKE_10'
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  rewardXp: integer('reward_xp').notNull(),
+  type: text('type').notNull(), // 'POST', 'LIKE', 'COMMENT', 'STREAK'
+  target: integer('target').notNull(),
+});
+
+export const userQuests = sqliteTable('user_quests', {
+  userId: integer('user_id').references(() => users.id).notNull(),
+  questId: text('quest_id').references(() => quests.id).notNull(),
+  progress: integer('progress').notNull().default(0),
+  isCompleted: integer('is_completed', { mode: 'boolean' }).default(false),
+  isClaimed: integer('is_claimed', { mode: 'boolean' }).default(false),
+  date: text('date').notNull(), // YYYY-MM-DD
+}, (table) => {
+  return {
+    pk: primaryKey({ columns: [table.userId, table.questId, table.date] })
+  };
+});
+

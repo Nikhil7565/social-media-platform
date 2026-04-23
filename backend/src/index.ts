@@ -10,6 +10,7 @@ import messagesRoutes from './routes/messages.js';
 import notificationsRoutes from './routes/notifications.js';
 import leaderboardRoutes from './routes/leaderboard.js';
 import profileRoutes from './routes/profile.js';
+import questsRoutes from './routes/quests.js';
 
 dotenv.config();
 
@@ -36,6 +37,7 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/quests', questsRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });

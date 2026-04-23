@@ -1,5 +1,5 @@
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Home, MessageSquare, PlusSquare, Bell, Trophy, LogOut } from 'lucide-react';
+import { Home, MessageSquare, PlusSquare, Bell, Trophy, LogOut, Target } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 import BrandLogo from './BrandLogo';
@@ -50,6 +50,7 @@ const Sidebar = ({ setIsAuthenticated }: { setIsAuthenticated: (b: boolean) => v
     { name: 'Messages', path: '/messages', icon: MessageSquare, badge: unreadMessages },
     { name: 'Create', path: '/create', icon: PlusSquare, badge: 0 },
     { name: 'Alerts', path: '/notifications', icon: Bell, badge: unreadAlerts },
+    { name: 'Missions', path: '/quests', icon: Target, badge: 0 },
     { name: 'Ranks', path: '/leaderboard', icon: Trophy, badge: 0 },
   ];
 

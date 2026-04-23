@@ -8,6 +8,7 @@ import Leaderboard from './pages/Leaderboard';
 import Notifications from './pages/Notifications';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
+import Quests from './pages/Quests';
 import { XPToastContainer } from './components/XPToast';
 import ModernVectorBackground from './components/ModernVectorBackground';
 
@@ -41,6 +42,7 @@ function App() {
                 <Route path="/messages/:userId" element={<Chat />} />
                 <Route path="/leaderboard" element={<Leaderboard />} />
                 <Route path="/notifications" element={<Notifications />} />
+                <Route path="/quests" element={<Quests />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/profile/:userId" element={<Profile />} />
                 <Route path="/create" element={<Navigate to="/" />} />
