@@ -61,7 +61,9 @@ const Feed = () => {
     try {
       const res = await fetch('/api/leaderboard');
       if (res.ok) setStoryUsers((await res.json()).slice(0, 8));
-    } catch {}
+    } catch (error) {
+      console.error('Stories fetch error:', error);
+    }
   };
 
   const fetchStats = async () => {
@@ -76,7 +78,9 @@ const Feed = () => {
           { label: 'Alerts', value: data.alerts.toString(), color: 'text-pink-500' },
         ]);
       }
-    } catch {}
+    } catch (error) {
+      console.error('Stats fetch error:', error);
+    }
   };
 
   const fetchPosts = async () => {
@@ -110,7 +114,9 @@ const Feed = () => {
         setPosts(posts.map(p => p.id === postId ? { ...p, hasLiked: !currentLiked, likes: currentLiked ? p.likes - 1 : p.likes + 1 } : p));
         if (!currentLiked) showXPToast(1, 'Like sent!');
       }
-    } catch {}
+    } catch (error) {
+      console.error('Like error:', error);
+    }
   };
 
   const fetchComments = async (postId: number) => {
@@ -172,7 +178,9 @@ const Feed = () => {
         showXPToast(XP_MAP.COMMENT, 'Comment posted!');
         fetchStats();
       }
-    } catch {}
+    } catch (error) {
+      console.error('Comment error:', error);
+    }
   };
 
   const handlePostSubmit = async (e: React.FormEvent) => {
@@ -200,7 +208,9 @@ const Feed = () => {
         fetchPosts();
         fetchStats();
       }
-    } catch {}
+    } catch (error) {
+      console.error('Post submit error:', error);
+    }
   };
 
   const handleShare = async (post: any) => {
@@ -221,7 +231,9 @@ const Feed = () => {
           await navigator.clipboard.writeText(shareUrl);
         }
       }
-    } catch {}
+    } catch (error) {
+      console.error('Share error:', error);
+    }
   };
 
   const handleDeletePost = async (postId: number) => {

@@ -42,25 +42,29 @@ export const showXPToast = (amount: number, label?: string) => {
   listeners.forEach(l => l(toasts));
 };
 
+export const removeXPToast = (id: number) => {
+  toasts = toasts.filter(t => t.id !== id);
+  listeners.forEach(l => l(toasts));
+};
+
 export const XPToastContainer = () => {
   const [entries, setEntries] = useState<ToastEntry[]>([]);
 
   useEffect(() => {
     const listener = (t: ToastEntry[]) => setEntries([...t]);
     listeners.push(listener);
-    return () => { listeners = listeners.filter(l => l !== listener); };
+    // Initialize with current toasts
+    setEntries([...toasts]);
+    return () => { 
+      listeners = listeners.filter(l => l !== listener); 
+    };
   }, []);
-
-  const remove = (id: number) => {
-    toasts = toasts.filter(t => t.id !== id);
-    listeners.forEach(l => l(toasts));
-  };
 
   // Stack them
   return (
     <div className="fixed bottom-8 right-8 z-[9999] flex flex-col gap-3 items-end pointer-events-none">
       {entries.map((e) => (
-        <XPToast key={e.id} amount={e.amount} label={e.label} onDone={() => remove(e.id)} />
+        <XPToast key={e.id} amount={e.amount} label={e.label} onDone={() => removeXPToast(e.id)} />
       ))}
     </div>
   );
