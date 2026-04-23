@@ -36,6 +36,7 @@ export const comments = sqliteTable('comments', {
 export const likes = sqliteTable('likes', {
   postId: integer('post_id').references(() => posts.id).notNull(),
   userId: integer('user_id').references(() => users.id).notNull(),
+  type: text('type').notNull().default('like'), // 'like' | 'pulse' | 'sparkle' | 'bolt'
 }, (table) => {
   return {
     pk: primaryKey({ columns: [table.postId, table.userId] })

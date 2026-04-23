@@ -34,7 +34,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
       },
       likes: sql<number>`(SELECT COUNT(*) FROM ${likes} WHERE ${likes.postId} = ${posts.id})`,
       comments: sql<number>`(SELECT COUNT(*) FROM ${comments} WHERE ${comments.postId} = ${posts.id})`,
-      hasLiked: sql<boolean>`EXISTS(SELECT 1 FROM ${likes} WHERE ${likes.postId} = ${posts.id} AND ${likes.userId} = ${userId})`
+      hasLiked: sql<boolean>`EXISTS(SELECT 1 FROM ${likes} WHERE ${likes.postId} = ${posts.id} AND ${likes.userId} = ${userId})`,
+      reactionType: sql<string>`(SELECT ${likes.type} FROM ${likes} WHERE ${likes.postId} = ${posts.id} AND ${likes.userId} = ${userId} LIMIT 1)`
     })
     .from(posts)
     .innerJoin(users, eq(posts.userId, users.id))
@@ -74,7 +75,8 @@ router.get('/trending', authenticateToken, async (req: AuthRequest, res) => {
       },
       likes: sql<number>`(SELECT COUNT(*) FROM ${likes} WHERE ${likes.postId} = ${posts.id})`,
       comments: sql<number>`(SELECT COUNT(*) FROM ${comments} WHERE ${comments.postId} = ${posts.id})`,
-      hasLiked: sql<boolean>`EXISTS(SELECT 1 FROM ${likes} WHERE ${likes.postId} = ${posts.id} AND ${likes.userId} = ${userId})`
+      hasLiked: sql<boolean>`EXISTS(SELECT 1 FROM ${likes} WHERE ${likes.postId} = ${posts.id} AND ${likes.userId} = ${userId})`,
+      reactionType: sql<string>`(SELECT ${likes.type} FROM ${likes} WHERE ${likes.postId} = ${posts.id} AND ${likes.userId} = ${userId} LIMIT 1)`
     })
     .from(posts)
     .innerJoin(users, eq(posts.userId, users.id))
@@ -137,18 +139,28 @@ router.post('/:id/like', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const postId = Number(req.params.id);
     const userId = req.user!.id;
+    const { type = 'like' } = req.body;
 
     // Check if already liked
     const existing = await db.select().from(likes).where(sql`${likes.postId} = ${postId} AND ${likes.userId} = ${userId}`);
     if (existing.length > 0) {
+      const alreadyLikedWithType = existing[0].type;
       await db.delete(likes).where(sql`${likes.postId} = ${postId} AND ${likes.userId} = ${userId}`);
+      
+      // If user clicked a DIFFERENT reaction, add the new one instead of just unliking
+      if (alreadyLikedWithType !== type) {
+          await db.insert(likes).values({ postId, userId, type });
+          return res.json({ liked: true, type });
+      }
+      
       return res.json({ liked: false });
     }
 
-    await db.insert(likes).values({ postId, userId });
+    await db.insert(likes).values({ postId, userId, type });
     
-    // Update Impact Score (+10 for like)
-    await db.update(posts).set({ impactScore: sql`${posts.impactScore} + 10` }).where(eq(posts.id, postId));
+    // Update Impact Score (+10 for like, +15 for others)
+    const scoreAdd = type === 'like' ? 10 : 15;
+    await db.update(posts).set({ impactScore: sql`${posts.impactScore} + ${scoreAdd}` }).where(eq(posts.id, postId));
 
     // Reward XP and check Level Up
     const [userRecord] = await db.select({ xp: users.xp }).from(users).where(eq(users.id, userId));
@@ -168,7 +180,7 @@ router.post('/:id/like', authenticateToken, async (req: AuthRequest, res) => {
     // Update Quests
     await updateQuestProgress(userId, 'LIKE');
 
-    res.json({ liked: true });
+    res.json({ liked: true, type });
   } catch (error) {
     res.status(500).json({ error: 'Failed to like post' });
   }

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { showXPToast } from '../components/XPToast';
 import PremiumEmojiPicker from '../components/PremiumEmojiPicker';
+import ReactionPicker, { type ReactionType } from '../components/ReactionPicker';
 
 const themes = [
   'bg-gradient-to-br from-violet-900 via-indigo-900 to-black',
@@ -107,12 +108,22 @@ const Feed = () => {
   };
 
 
-  const handleLike = async (postId: number, currentLiked: boolean) => {
+  const handleLike = async (postId: number, currentLiked: boolean, type: ReactionType = 'like') => {
     try {
-      const res = await fetch(`/api/feed/${postId}/like`, { method: 'POST', headers: getAuthHeader() });
+      const res = await fetch(`/api/feed/${postId}/like`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ type })
+      });
       if (res.ok) {
-        setPosts(posts.map(p => p.id === postId ? { ...p, hasLiked: !currentLiked, likes: currentLiked ? p.likes - 1 : p.likes + 1 } : p));
-        if (!currentLiked) showXPToast(1, 'Like sent!');
+        const data = await res.json();
+        setPosts(posts.map(p => p.id === postId ? { 
+          ...p, 
+          hasLiked: data.liked, 
+          reactionType: data.type,
+          likes: data.liked ? (p.hasLiked ? p.likes : p.likes + 1) : (p.likes - 1)
+        } : p));
+        if (data.liked) showXPToast(1, `${type.charAt(0).toUpperCase() + type.slice(1)} synchronized!`);
       }
     } catch (error) {
       console.error('Like error:', error);
@@ -366,9 +377,12 @@ const Feed = () => {
           </Link>
           <span className="text-gray-400 text-sm">{post.user?.username}</span>
           <div className="ml-auto flex items-center gap-4">
-            <button onClick={() => handleLike(post.id, post.hasLiked)} className={`flex items-center gap-1.5 text-sm transition-colors ${post.hasLiked ? 'text-rose-400' : 'text-gray-400 hover:text-rose-400'}`}>
-              <Heart className="w-4 h-4" fill={post.hasLiked ? 'currentColor' : 'none'} />{post.likes}
-            </button>
+            <ReactionPicker 
+                hasLiked={post.hasLiked} 
+                currentType={post.reactionType} 
+                onSelect={(type) => handleLike(post.id, post.hasLiked, type)} 
+            />
+            <span className="text-gray-400 text-xs -ml-2">{post.likes}</span>
             <button onClick={() => toggleComments(post.id)} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white">
               <MessageCircle className="w-4 h-4" />{post.comments}
             </button>
@@ -662,10 +676,14 @@ const Feed = () => {
 
                 {/* Actions */}
                 <div className="flex items-center gap-6">
-                  <button onClick={() => handleLike(post.id, post.hasLiked)} className={`flex items-center gap-2 transition-colors ${post.hasLiked ? 'text-pinklike drop-shadow-[0_0_8px_rgba(236,72,153,0.8)]' : 'text-gray-400 hover:text-pinklike'}`}>
-                    <Heart className="w-5 h-5" fill={post.hasLiked ? 'currentColor' : 'none'} />
-                    <span className="text-sm font-medium">{post.likes}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <ReactionPicker 
+                        hasLiked={post.hasLiked} 
+                        currentType={post.reactionType} 
+                        onSelect={(type) => handleLike(post.id, post.hasLiked, type)} 
+                    />
+                    <span className="text-sm font-medium text-gray-400">{post.likes}</span>
+                  </div>
                   <button onClick={() => toggleComments(post.id)} className={`flex items-center gap-2 transition-colors ${activeCommentPostId === post.id ? 'text-white' : 'text-gray-400 hover:text-white'}`}>
                     <MessageCircle className="w-5 h-5" />
                     <span className="text-sm font-medium">{post.comments}</span>
