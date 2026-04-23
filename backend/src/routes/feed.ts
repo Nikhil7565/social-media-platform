@@ -30,27 +30,22 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
         username: users.username,
         avatarUrl: users.avatarUrl,
         xp: users.xp
-      }
+      },
+      likes: sql<number>`(SELECT COUNT(*) FROM ${likes} WHERE ${likes.postId} = ${posts.id})`,
+      comments: sql<number>`(SELECT COUNT(*) FROM ${comments} WHERE ${comments.postId} = ${posts.id})`,
+      hasLiked: sql<boolean>`EXISTS(SELECT 1 FROM ${likes} WHERE ${likes.postId} = ${posts.id} AND ${likes.userId} = ${userId})`
     })
     .from(posts)
     .innerJoin(users, eq(posts.userId, users.id))
     .orderBy(desc(posts.createdAt))
     .limit(50);
 
-    const augmentedFeed = await Promise.all(feedPosts.map(async (p) => {
-      const [likeCount] = await db.select({ count: sql<number>`count(*)` }).from(likes).where(eq(likes.postId, p.id));
-      const [commentCount] = await db.select({ count: sql<number>`count(*)` }).from(comments).where(eq(comments.postId, p.id));
-      const hasLiked = await db.select().from(likes).where(sql`${likes.postId} = ${p.id} AND ${likes.userId} = ${userId}`);
-
-      return {
-        ...p,
-        likes: Number(likeCount?.count ?? 0),
-        comments: Number(commentCount?.count ?? 0),
-        hasLiked: hasLiked.length > 0
-      };
-    }));
-
-    res.json(augmentedFeed);
+    res.json(feedPosts.map(p => ({
+      ...p,
+      likes: Number(p.likes),
+      comments: Number(p.comments),
+      hasLiked: Boolean(p.hasLiked)
+    })));
   } catch (error) {
     console.error('Feed error:', error);
     res.status(500).json({ error: 'Failed to fetch feed' });
@@ -75,7 +70,10 @@ router.get('/trending', authenticateToken, async (req: AuthRequest, res) => {
         username: users.username,
         avatarUrl: users.avatarUrl,
         xp: users.xp
-      }
+      },
+      likes: sql<number>`(SELECT COUNT(*) FROM ${likes} WHERE ${likes.postId} = ${posts.id})`,
+      comments: sql<number>`(SELECT COUNT(*) FROM ${comments} WHERE ${comments.postId} = ${posts.id})`,
+      hasLiked: sql<boolean>`EXISTS(SELECT 1 FROM ${likes} WHERE ${likes.postId} = ${posts.id} AND ${likes.userId} = ${userId})`
     })
     .from(posts)
     .innerJoin(users, eq(posts.userId, users.id))
@@ -83,20 +81,12 @@ router.get('/trending', authenticateToken, async (req: AuthRequest, res) => {
     .orderBy(desc(posts.impactScore), desc(posts.createdAt))
     .limit(20);
 
-    const augmented = await Promise.all(trendingPosts.map(async (p) => {
-      const [likeCount] = await db.select({ count: sql<number>`count(*)` }).from(likes).where(eq(likes.postId, p.id));
-      const [commentCount] = await db.select({ count: sql<number>`count(*)` }).from(comments).where(eq(comments.postId, p.id));
-      const hasLiked = await db.select().from(likes).where(sql`${likes.postId} = ${p.id} AND ${likes.userId} = ${userId}`);
-
-      return {
-        ...p,
-        likes: Number(likeCount?.count ?? 0),
-        comments: Number(commentCount?.count ?? 0),
-        hasLiked: hasLiked.length > 0
-      };
-    }));
-
-    res.json(augmented);
+    res.json(trendingPosts.map(p => ({
+      ...p,
+      likes: Number(p.likes),
+      comments: Number(p.comments),
+      hasLiked: Boolean(p.hasLiked)
+    })));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch trending' });
   }

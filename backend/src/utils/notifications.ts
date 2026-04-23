@@ -20,9 +20,7 @@ export const createNotification = async (userId: number, actorId: number, type: 
 export const notifyAllOtherUsers = async (actorId: number, type: string, referenceId?: number, data?: number) => {
   try {
     const allUsers = await db.select({ id: users.id }).from(users).where(ne(users.id, actorId));
-    for (const user of allUsers) {
-      await createNotification(user.id, actorId, type, referenceId, data);
-    }
+    await Promise.all(allUsers.map(user => createNotification(user.id, actorId, type, referenceId, data)));
   } catch (error) {
     console.error('Failed to notify all users:', error);
   }

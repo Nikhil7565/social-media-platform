@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
 import feedRoutes from './routes/feed.js';
@@ -19,8 +20,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Log request duration
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url} - ${duration}ms`);
+  });
   next();
 });
 
@@ -41,11 +47,11 @@ app.use(express.static(frontendDistPath));
 
 // Final Catch-All (MUST BE LAST)
 app.get('/{*path}', (req, res) => {
-  try {
-    const indexPath = path.join(frontendDistPath, 'index.html');
+  const indexPath = path.join(frontendDistPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
-  } catch (e) {
-    res.status(404).send('Sector 404: Frontend not built');
+  } else {
+    res.status(404).send('Sector 404: Frontend not built. Please run "npm run build" in the frontend directory.');
   }
 });
 
