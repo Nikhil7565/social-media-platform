@@ -27,16 +27,23 @@ const Chat = () => {
         });
         if (res.ok) {
           const data = await res.json();
-          setMessages(data.messages);
+          setMessages(prev => {
+            if (prev.length !== data.messages.length) {
+              setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+              return data.messages;
+            }
+            return prev;
+          });
           setOtherUser(data.otherUser);
           setStreak(data.streak?.streakCount || 0);
-          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         }
       } catch (e) {
         console.error('Failed to load messages');
       }
     };
     fetchMessages();
+    const interval = setInterval(fetchMessages, 3000);
+    return () => clearInterval(interval);
   }, [userId]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

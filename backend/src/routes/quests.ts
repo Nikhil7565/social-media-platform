@@ -7,10 +7,10 @@ import { eq, and, sql } from 'drizzle-orm';
 const router = express.Router();
 
 const DAILY_QUESTS = [
-  { id: 'POST_1', title: 'Galactic Broadcast', description: 'Share 1 post in the sector', rewardXp: 50, type: 'POST', target: 1 },
-  { id: 'LIKE_5', title: 'Neural Surge', description: 'Send 5 neural pulses (likes)', rewardXp: 30, type: 'LIKE', target: 5 },
-  { id: 'COMMENT_3', title: 'Data Transmission', description: 'Leave 3 transmissions (comments)', rewardXp: 40, type: 'COMMENT', target: 3 },
-  { id: 'STREAK_1', title: 'Void Sync', description: 'Maintain or start 1 chat streak', rewardXp: 60, type: 'STREAK', target: 1 },
+  { id: 'POST_ACTION', title: 'Initiate Action', description: 'Create 1 Challenge or Help request', rewardXp: 100, type: 'POST', target: 1 },
+  { id: 'SIGNAL_BOLT', title: 'High Value Signal', description: 'Send 3 Bolt (⚡) reactions to quality posts', rewardXp: 80, type: 'LIKE', target: 3 },
+  { id: 'COMMENT_ACTION', title: 'Collaborator', description: 'Contribute 2 helpful comments to challenges', rewardXp: 70, type: 'COMMENT', target: 2 },
+  { id: 'STREAK_1', title: 'Momentum Sync', description: 'Maintain a collaboration streak', rewardXp: 60, type: 'STREAK', target: 1 },
 ];
 
 // Ensure daily quests exist in the main quests table

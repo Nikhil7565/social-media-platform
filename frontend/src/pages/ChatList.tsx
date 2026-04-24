@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Flame, MessageSquare } from 'lucide-react';
+import { Search, Flame, MessageSquare, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -8,6 +8,8 @@ const ChatList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [aiInfo, setAiInfo] = useState<any>(null);
+
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -41,6 +43,16 @@ const ChatList = () => {
       }
     };
     fetchConversations();
+
+    const fetchAIInfo = async () => {
+      try {
+        const res = await fetch('/api/ai/info', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (res.ok) setAiInfo(await res.json());
+      } catch {}
+    };
+    fetchAIInfo();
   }, []);
 
   useEffect(() => {
@@ -130,7 +142,32 @@ const ChatList = () => {
           </div>
         ) : null}
 
+        {/* Featured AI Assistant */}
+        {aiInfo && (
+          <Link to={`/messages/${aiInfo.id}`} className="block mb-6">
+            <div className="glass-card p-4 transition-all bg-gradient-to-br from-cyan-900/40 via-blue-900/40 to-black border-cyan-500/30 flex items-center gap-4 relative group hover:scale-[1.02] shadow-[0_0_20px_rgba(6,182,212,0.1)]">
+              <div className="relative">
+                <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-cyan-400 via-blue-500 to-purple-600 animate-pulse">
+                  <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
+                    <img src={aiInfo.avatarUrl || "https://images.unsplash.com/photo-1675271591211-126ad94e495d?q=80&w=2670&auto=format&fit=crop"} className="w-full h-full object-cover" />
+                  </div>
+                </div>
+                <div className="absolute -bottom-1 -right-1 bg-cyan-500 text-black text-[8px] font-black px-1.5 rounded-full border border-black">AI</div>
+              </div>
+              
+              <div className="flex-1">
+                <h3 className="font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 to-blue-400 text-lg">KINETIC AI</h3>
+                <p className="text-xs text-cyan-300/70 font-medium">Your strategic Action Advisor. Ask me anything.</p>
+              </div>
+              <div className="bg-cyan-500/10 text-cyan-400 p-2 rounded-full border border-cyan-500/20 group-hover:bg-cyan-500 group-hover:text-black transition-all">
+                <Zap className="w-4 h-4" />
+              </div>
+            </div>
+          </Link>
+        )}
+
         <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-4 pl-1">Recent Pulses</h2>
+
         
         {conversations.length === 0 && searchQuery.length < 2 && (
           <div className="text-center text-gray-500 mt-20 italic">Empty sector. Start a conversation!</div>

@@ -1,6 +1,6 @@
 import { db } from '../db/index.js';
-import { notifications, users } from '../db/schema.js';
-import { eq, ne, desc } from 'drizzle-orm';
+import { notifications, users, achievements } from '../db/schema.js';
+import { eq, ne, desc, and } from 'drizzle-orm';
 import { calculateLevel } from './gamification.js';
 export const createNotification = async (userId, actorId, type, referenceId, data) => {
     try {
@@ -19,9 +19,7 @@ export const createNotification = async (userId, actorId, type, referenceId, dat
 export const notifyAllOtherUsers = async (actorId, type, referenceId, data) => {
     try {
         const allUsers = await db.select({ id: users.id }).from(users).where(ne(users.id, actorId));
-        for (const user of allUsers) {
-            await createNotification(user.id, actorId, type, referenceId, data);
-        }
+        await Promise.all(allUsers.map(user => createNotification(user.id, actorId, type, referenceId, data)));
     }
     catch (error) {
         console.error('Failed to notify all users:', error);
@@ -32,6 +30,18 @@ export const checkLevelUp = async (userId, oldXp, newXp) => {
     const newLevel = calculateLevel(newXp);
     if (newLevel > oldLevel) {
         await createNotification(userId, userId, 'level_up', undefined, newLevel);
+    }
+    // Check for XP milestones
+    const milestones = [1000, 5000, 10000, 50000];
+    for (const m of milestones) {
+        if (oldXp < m && newXp >= m) {
+            // Award Milestone
+            const existing = await db.select().from(achievements).where(and(eq(achievements.userId, userId), eq(achievements.type, 'xp_milestone'), eq(achievements.value, m)));
+            if (existing.length === 0) {
+                await db.insert(achievements).values({ userId, type: 'xp_milestone', value: m });
+                await createNotification(userId, userId, 'milestone', undefined, m);
+            }
+        }
     }
 };
 export const checkRankChange = async (userId) => {
@@ -45,8 +55,13 @@ export const checkRankChange = async (userId) => {
         if (isTop5) {
             // Find current rank
             const rank = topUsers.findIndex(u => u.id === userId) + 1;
-            // Simplified: Only notify if they hit exactly Rank 1, 2, or 3 for the first time in this session?
-            // Better: Just notify "You are now Rank X!"
+            // If they hit Rank 1, check for achievement
+            if (rank === 1) {
+                const existing = await db.select().from(achievements).where(and(eq(achievements.userId, userId), eq(achievements.type, 'rank_one')));
+                if (existing.length === 0) {
+                    await db.insert(achievements).values({ userId, type: 'rank_one', value: 1 });
+                }
+            }
             await createNotification(userId, userId, 'rank_change', undefined, rank);
         }
     }

@@ -8,6 +8,7 @@ export const users = sqliteTable('users', {
     avatarUrl: text('avatar_url'),
     bio: text('bio'),
     xp: integer('xp').notNull().default(0),
+    profileTheme: text('profile_theme').notNull().default('default'),
     createdAt: text('created_at').default(sql `CURRENT_TIMESTAMP`),
 });
 export const posts = sqliteTable('posts', {
@@ -18,6 +19,7 @@ export const posts = sqliteTable('posts', {
     videoUrl: text('video_url'),
     caption: text('caption'),
     themeName: text('theme_name'),
+    impactScore: integer('impact_score').notNull().default(0),
     createdAt: text('created_at').default(sql `CURRENT_TIMESTAMP`),
 });
 export const comments = sqliteTable('comments', {
@@ -30,6 +32,7 @@ export const comments = sqliteTable('comments', {
 export const likes = sqliteTable('likes', {
     postId: integer('post_id').references(() => posts.id).notNull(),
     userId: integer('user_id').references(() => users.id).notNull(),
+    type: text('type').notNull().default('like'), // 'like' | 'pulse' | 'sparkle' | 'bolt'
 }, (table) => {
     return {
         pk: primaryKey({ columns: [table.postId, table.userId] })
@@ -51,14 +54,41 @@ export const streaks = sqliteTable('streaks', {
     streakCount: integer('streak_count').notNull().default(0),
     lastMessageAt: text('last_message_at').default(sql `CURRENT_TIMESTAMP`),
 });
+export const achievements = sqliteTable('achievements', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id').references(() => users.id).notNull(),
+    type: text('type').notNull(), // 'xp_milestone', 'streak_milestone', 'rank_one'
+    value: integer('value').notNull(),
+    createdAt: text('created_at').default(sql `CURRENT_TIMESTAMP`),
+});
 export const notifications = sqliteTable('notifications', {
     id: integer('id').primaryKey({ autoIncrement: true }),
     userId: integer('user_id').references(() => users.id).notNull(),
-    type: text('type').notNull(), // 'like', 'comment', 'message', 'streak'
+    type: text('type').notNull(), // 'like', 'comment', 'message', 'streak', 'milestone'
     actorId: integer('actor_id').references(() => users.id).notNull(),
     referenceId: integer('reference_id'),
     data: integer('data'),
     isRead: integer('is_read', { mode: 'boolean' }).default(false),
     createdAt: text('created_at').default(sql `CURRENT_TIMESTAMP`),
+});
+export const quests = sqliteTable('quests', {
+    id: text('id').primaryKey(), // e.g., 'POST_3', 'LIKE_10'
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    rewardXp: integer('reward_xp').notNull(),
+    type: text('type').notNull(), // 'POST', 'LIKE', 'COMMENT', 'STREAK'
+    target: integer('target').notNull(),
+});
+export const userQuests = sqliteTable('user_quests', {
+    userId: integer('user_id').references(() => users.id).notNull(),
+    questId: text('quest_id').references(() => quests.id).notNull(),
+    progress: integer('progress').notNull().default(0),
+    isCompleted: integer('is_completed', { mode: 'boolean' }).default(false),
+    isClaimed: integer('is_claimed', { mode: 'boolean' }).default(false),
+    date: text('date').notNull(), // YYYY-MM-DD
+}, (table) => {
+    return {
+        pk: primaryKey({ columns: [table.userId, table.questId, table.date] })
+    };
 });
 //# sourceMappingURL=schema.js.map

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Zap, Crown } from 'lucide-react';
+import { Zap, Crown } from 'lucide-react';
 
 const Leaderboard = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -33,9 +33,9 @@ const Leaderboard = () => {
   return (
     <div className="max-w-3xl mx-auto py-10 px-4 h-full overflow-y-auto">
       <div className="flex flex-col items-center mb-12">
-        <Trophy className="w-12 h-12 text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.5)] mb-4" />
-        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-200 to-yellow-500">Global Leaderboard</h1>
-        <p className="text-gray-400 mt-2">Earn XP by engaging to climb the ranks!</p>
+        <Zap className="w-12 h-12 text-accent drop-shadow-[0_0_15px_rgba(56,189,248,0.5)] mb-4 animate-pulse" />
+        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-200 to-accent">Impact Leaderboard</h1>
+        <p className="text-gray-400 mt-2">The most influential contributors in the matrix.</p>
       </div>
 
       {/* Podium */}

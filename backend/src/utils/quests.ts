@@ -2,7 +2,7 @@ import { db } from '../db/index.js';
 import { userQuests, quests } from '../db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 
-export const updateQuestProgress = async (userId: number, type: 'POST' | 'LIKE' | 'COMMENT' | 'STREAK') => {
+export const updateQuestProgress = async (userId: number, type: 'POST' | 'LIKE' | 'COMMENT' | 'STREAK', subType?: string) => {
     try {
         const date = new Date().toISOString().split('T')[0]!;
         
@@ -19,6 +19,7 @@ export const updateQuestProgress = async (userId: number, type: 'POST' | 'LIKE' 
             eq(userQuests.userId, userId),
             eq(userQuests.date, date),
             eq(quests.type, type),
+            subType ? eq(quests.id, subType) : sql`1=1`, // If subtype provided, match specific quest ID
             eq(userQuests.isCompleted, false)
         ));
 

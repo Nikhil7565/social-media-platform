@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sparkles, Heart, MessageCircle, Share2, Globe, Plus, Image, Film, Newspaper, AlignLeft, X, Send, Trash2, Smile } from 'lucide-react';
+import { Sparkles, MessageCircle, Share2, Globe, Plus, Image, Film, Newspaper, AlignLeft, X, Send, Trash2, Smile, Zap, Brain } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { showXPToast } from '../components/XPToast';
@@ -17,12 +17,13 @@ const themes = [
 
 const POST_TYPES = [
   { id: 'text', label: 'Status', icon: AlignLeft, color: 'from-violet-500 to-purple-700' },
-  { id: 'image', label: 'Image', icon: Image, color: 'from-cyan-500 to-blue-700' },
-  { id: 'reel', label: 'Reel', icon: Film, color: 'from-rose-500 to-pink-700' },
-  { id: 'news', label: 'News', icon: Newspaper, color: 'from-amber-500 to-orange-700' },
+  { id: 'challenge', label: 'Challenge', icon: Zap, color: 'from-amber-500 to-orange-700' },
+  { id: 'help', label: 'Help', icon: MessageCircle, color: 'from-cyan-500 to-blue-700' },
+  { id: 'image', label: 'Image', icon: Image, color: 'from-pink-500 to-rose-700' },
+  { id: 'reel', label: 'Reel', icon: Film, color: 'from-blue-500 to-indigo-700' },
 ];
 
-const XP_MAP: Record<string, number> = { POST: 10, COMMENT: 5, SHARE: 2 };
+const XP_MAP: Record<string, number> = { POST: 5, ACTION_POST: 20, COMMENT: 3, SHARE: 2 };
 
 const Feed = () => {
   const [posts, setPosts] = useState<any[]>([]);
@@ -46,6 +47,10 @@ const Feed = () => {
   const [loadingComments, setLoadingComments] = useState<Record<number, boolean>>({});
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiTrigger, setEmojiTrigger] = useState<HTMLElement | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [isAIThinking, setIsAIThinking] = useState(false);
+
+
 
 
   const getAuthHeader = () => ({ 'Authorization': `Bearer ${localStorage.getItem('token')}` });
@@ -108,7 +113,7 @@ const Feed = () => {
   };
 
 
-  const handleLike = async (postId: number, currentLiked: boolean, type: ReactionType = 'like') => {
+  const handleLike = async (postId: number, _currentLiked: boolean, type: ReactionType = 'like') => {
     try {
       const res = await fetch(`/api/feed/${postId}/like`, { 
         method: 'POST', 
@@ -157,7 +162,8 @@ const Feed = () => {
   };
 
   const handleCommentSubmit = async (postId: number) => {
-    if (!commentText.trim()) return;
+    if (!commentText.trim() || submitting) return;
+    setSubmitting(true);
     try {
       const res = await fetch(`/api/feed/${postId}/comment`, {
         method: 'POST',
@@ -191,13 +197,37 @@ const Feed = () => {
       }
     } catch (error) {
       console.error('Comment error:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleAISuggestion = async () => {
+    setIsAIThinking(true);
+    try {
+      const res = await fetch('/api/ai/suggest', {
+        headers: getAuthHeader()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPostCaption(data.caption);
+        setPostType(data.type);
+        showXPToast(5, 'AI Action Generated!');
+      }
+    } catch (error) {
+      console.error('AI Suggestion error:', error);
+    } finally {
+      setIsAIThinking(false);
     }
   };
 
   const handlePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!postCaption.trim() && !postImageUrl && !postVideoUrl) return;
+    if (submitting) return;
+    setSubmitting(true);
     try {
+
       const res = await fetch('/api/feed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
@@ -215,12 +245,16 @@ const Feed = () => {
         setPostVideoUrl('');
         setIsPosting(false);
         setPostType('text');
-        showXPToast(XP_MAP.POST, 'Post published!');
+        
+        const xpReward = (postType === 'challenge' || postType === 'help') ? XP_MAP.ACTION_POST : XP_MAP.POST;
+        showXPToast(xpReward, 'Action Transmitted!');
         fetchPosts();
         fetchStats();
       }
     } catch (error) {
       console.error('Post submit error:', error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -318,8 +352,10 @@ const Feed = () => {
   // Post type badge
   const renderTypeBadge = (type: string) => {
     const map: Record<string, { label: string; cls: string }> = {
-      image: { label: '📷 Image', cls: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
-      reel: { label: '🎬 Reel', cls: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
+      image: { label: '📷 Image', cls: 'bg-pink-500/20 text-pink-300 border-pink-500/30' },
+      reel: { label: '🎬 Reel', cls: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+      challenge: { label: '⚡ Challenge', cls: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+      help: { label: '🆘 Help Request', cls: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
       news: { label: '📰 News', cls: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
     };
     const info = map[type];
@@ -442,7 +478,9 @@ const Feed = () => {
                 />
               </div>
               <input type="text" value={commentText} onChange={e => setCommentText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCommentSubmit(post.id)} placeholder="Transmit report..." className="flex-1 bg-black/50 border border-amber-500/20 rounded-lg px-4 py-2 text-xs text-white placeholder:text-amber-500/30 focus:border-amber-400 outline-none" />
-              <button onClick={() => handleCommentSubmit(post.id)} disabled={!commentText.trim()} className="text-amber-400 hover:text-white font-black text-xs px-3 disabled:opacity-30 transition-all uppercase tracking-widest">Send</button>
+              <button onClick={() => handleCommentSubmit(post.id)} disabled={!commentText.trim() || submitting} className="text-amber-400 hover:text-white font-black text-xs px-3 disabled:opacity-30 transition-all uppercase tracking-widest">
+                {submitting ? '...' : 'Send'}
+              </button>
             </div>
           </div>
         )}
@@ -459,20 +497,20 @@ const Feed = () => {
       <div className="flex items-center justify-between mb-8">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold flex items-center gap-3 active:scale-95 transition-transform group">
-            <span className="glow-text glitch-text">Kinetic Feed</span> <Sparkles className="text-accent w-6 h-6 animate-pulse star-accent group-hover:rotate-12 transition-transform" />
+            <span className="glow-text glitch-text">Action Matrix</span> <Zap className="text-accent w-6 h-6 animate-pulse star-accent group-hover:rotate-12 transition-transform" />
           </h1>
           <div className="flex gap-4">
             <button 
               onClick={() => setFeedType('main')}
               className={`text-xs font-black uppercase tracking-widest transition-all ${feedType === 'main' ? 'text-accent border-b-2 border-accent pb-1' : 'text-gray-500 hover:text-white'}`}
             >
-              Main Sector
+              Latest Actions
             </button>
             <button 
               onClick={() => setFeedType('trending')}
               className={`text-xs font-black uppercase tracking-widest transition-all ${feedType === 'trending' ? 'text-amber-500 border-b-2 border-amber-500 pb-1' : 'text-gray-500 hover:text-white'}`}
             >
-              🔥 Breaking News
+              🔥 High Impact
             </button>
           </div>
         </div>
@@ -492,13 +530,14 @@ const Feed = () => {
             className="glass-card animated-glass p-5 mb-8 border border-primary/40 shadow-[0_0_30px_rgba(124,58,237,0.15)]"
           >
           {/* Post Type Tabs */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex gap-2 mb-4 items-center">
             {POST_TYPES.map(t => {
               const Icon = t.icon;
               const active = postType === t.id;
               return (
                 <button
                   key={t.id}
+                  type="button"
                   onClick={() => setPostType(t.id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${active ? `bg-gradient-to-r ${t.color} text-white shadow-lg` : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}
                 >
@@ -506,6 +545,20 @@ const Feed = () => {
                 </button>
               );
             })}
+            
+            <button
+              type="button"
+              onClick={handleAISuggestion}
+              disabled={isAIThinking}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)] hover:scale-105 active:scale-95 disabled:opacity-50"
+            >
+              {isAIThinking ? (
+                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Brain className="w-3.5 h-3.5" />
+              )}
+              {isAIThinking ? 'Thinking...' : 'AI Brain'}
+            </button>
           </div>
 
           <form onSubmit={handlePostSubmit} className="flex flex-col gap-3">
@@ -513,10 +566,11 @@ const Feed = () => {
               value={postCaption}
               onChange={e => setPostCaption(e.target.value)}
               placeholder={
-                postType === 'news' ? 'Write your news headline or story...' :
+                postType === 'challenge' ? 'Post a challenge for the community...' :
+                postType === 'help' ? 'Describe what you need help with...' :
                 postType === 'reel' ? 'Describe your reel...' :
                 postType === 'image' ? 'Caption for your image...' :
-                'Share an update, traveler...'
+                'What action are you taking today?'
               }
               className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white placeholder-gray-400 focus:outline-none focus:border-accent resize-none h-24"
               autoFocus
@@ -547,10 +601,15 @@ const Feed = () => {
             )}
             <div className="flex justify-between items-center">
               <span className="text-xs text-gray-500 flex items-center gap-1">
-                ⚡ <span className="text-accent font-semibold">+{XP_MAP.POST} XP</span> for posting
+                ⚡ <span className="text-accent font-semibold">+{(postType === 'challenge' || postType === 'help') ? XP_MAP.ACTION_POST : XP_MAP.POST} XP</span> for this action
               </span>
-              <button type="submit" className="btn-primary px-6 py-2 rounded-full font-bold shadow-lg shadow-accent/20 transition-all hover:scale-105 flex items-center gap-2">
-                <Send className="w-4 h-4" /> Transmit
+              <button type="submit" disabled={submitting} className="btn-primary px-6 py-2 rounded-full font-bold shadow-lg shadow-accent/20 transition-all hover:scale-105 flex items-center gap-2 disabled:opacity-50">
+                {submitting ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )} 
+                {submitting ? 'Transmitting...' : 'Transmit'}
               </button>
             </div>
           </form>
@@ -757,10 +816,14 @@ const Feed = () => {
                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
                              <button
                                onClick={() => handleCommentSubmit(post.id)}
-                               disabled={!commentText.trim()}
+                               disabled={!commentText.trim() || submitting}
                                className="w-8 h-8 rounded-full bg-accent text-black flex items-center justify-center hover:scale-110 active:scale-95 disabled:opacity-30 disabled:scale-100 transition-all shadow-[0_0_20px_rgba(56,189,248,0.5)] glow-accent"
                              >
-                               <Send className="w-4 h-4" />
+                               {submitting ? (
+                                 <div className="w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                               ) : (
+                                 <Send className="w-4 h-4" />
+                               )}
                              </button>
                            </div>
                         </div>

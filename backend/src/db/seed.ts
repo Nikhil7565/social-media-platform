@@ -1,5 +1,5 @@
 import { db } from './index.js';
-import { users, posts, likes, comments, notifications, streaks, achievements, messages } from './schema.js';
+import { users, posts, likes, comments, notifications, streaks, achievements, messages, userQuests, quests } from './schema.js';
 import bcrypt from 'bcryptjs';
 
 async function seed() {
@@ -14,13 +14,16 @@ async function seed() {
     await db.delete(achievements);
     await db.delete(messages);
     await db.delete(streaks);
+    await db.delete(userQuests);
     await db.delete(posts);
+    await db.delete(quests);
     await db.delete(users);
 
     const hashedPassword = await bcrypt.hash('password123', 10);
     
     console.log('👤 Synchronizing Pioneers...');
     const seedUsers = [
+      { username: 'Kinetic AI', email: 'ai@kinetic.net', passwordHash: hashedPassword, xp: 99999, avatarUrl: 'https://images.unsplash.com/photo-1675271591211-126ad94e495d?q=80&w=2670&auto=format&fit=crop' },
       { username: 'alex', email: 'alex@example.com', passwordHash: hashedPassword, xp: 1850 },
       { username: 'maya', email: 'maya@example.com', passwordHash: hashedPassword, xp: 850 },
       { username: 'sam', email: 'sam@example.com', passwordHash: hashedPassword, xp: 450 },

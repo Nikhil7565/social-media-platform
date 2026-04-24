@@ -5,6 +5,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { eq, or, and, sql, desc } from 'drizzle-orm';
 import { XP_REWARDS, calculateLevel } from '../utils/gamification.js';
 import { createNotification, checkLevelUp, checkRankChange } from '../utils/notifications.js';
+import { getAIResponse } from '../utils/ai.js';
 const router = express.Router();
 // Get Conversations (Chat List)
 router.get('/conversations', authenticateToken, async (req, res) => {
@@ -120,6 +121,23 @@ router.post('/:otherUserId', authenticateToken, async (req, res) => {
                 await createNotification(userId, otherUserId, 'streak', streak.id, newCount);
                 await createNotification(otherUserId, userId, 'streak', streak.id, newCount);
             }
+        }
+        // AI AUTO-RESPONSE LOGIC
+        const [receiver] = await db.select({ username: users.username }).from(users).where(eq(users.id, otherUserId));
+        if (receiver && receiver.username === 'Kinetic AI') {
+            // Simulate thinking time
+            setTimeout(async () => {
+                const aiText = getAIResponse(content || "");
+                await db.insert(messages).values({
+                    senderId: otherUserId, // AI is sender
+                    receiverId: userId, // User is receiver
+                    content: aiText,
+                    isRead: 0
+                });
+                // Optional: Reward user for interacting with AI
+                await db.update(users).set({ xp: sql `${users.xp} + 5` }).where(eq(users.id, userId));
+                await createNotification(userId, otherUserId, 'message', 0); // Notify user of AI reply
+            }, 1000);
         }
         res.json(newMsg);
     }

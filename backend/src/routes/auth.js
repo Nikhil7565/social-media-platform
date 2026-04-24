@@ -46,21 +46,15 @@ router.post('/login', async (req, res) => {
 router.get('/stats', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
-        // Get user XP
-        const [user] = await db.select().from(users).where(eq(users.id, userId));
+        // Fetch all stats in parallel
+        const [[user], [postsCount], [streaksCount], [alertsCount], [unreadMsgCount]] = await Promise.all([
+            db.select().from(users).where(eq(users.id, userId)),
+            db.select({ count: sql `count(*)` }).from(posts).where(eq(posts.userId, userId)),
+            db.select({ count: sql `count(*)` }).from(streaks).where(and(or(eq(streaks.user1Id, userId), eq(streaks.user2Id, userId)), sql `${streaks.streakCount} > 0`)),
+            db.select({ count: sql `count(*)` }).from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.isRead, false))),
+            db.select({ count: sql `count(*)` }).from(messages).where(and(eq(messages.receiverId, userId), eq(messages.isRead, 0)))
+        ]);
         const xp = user?.xp || 0;
-        // Get posts count
-        const [postsCount] = await db.select({ count: sql `count(*)` })
-            .from(posts).where(eq(posts.userId, userId));
-        // Get active streaks count (any streak where streakCount > 0)
-        const [streaksCount] = await db.select({ count: sql `count(*)` })
-            .from(streaks).where(and(or(eq(streaks.user1Id, userId), eq(streaks.user2Id, userId)), sql `${streaks.streakCount} > 0`));
-        // Get unread alerts
-        const [alertsCount] = await db.select({ count: sql `count(*)` })
-            .from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
-        // Get unread messages
-        const [unreadMsgCount] = await db.select({ count: sql `count(*)` })
-            .from(messages).where(and(eq(messages.receiverId, userId), eq(messages.isRead, 0)));
         res.json({
             posts: Number(postsCount?.count ?? 0),
             xp,

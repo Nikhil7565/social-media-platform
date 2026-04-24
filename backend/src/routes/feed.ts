@@ -113,10 +113,16 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
 
     if (!newPost) throw new Error('Post creation failed');
 
-    // Reward XP
+    // Reward XP - More XP for "Action" post types (Challenges/Help)
     const [user] = await db.select({ xp: users.xp }).from(users).where(eq(users.id, userId));
     const oldXp = user?.xp || 0;
-    const newXp = oldXp + XP_REWARDS.POST;
+    
+    let reward = XP_REWARDS.POST;
+    if (postType === 'challenge' || postType === 'help') {
+        reward += XP_REWARDS.ACTION_POST_BONUS;
+    }
+    
+    const newXp = oldXp + reward;
     
     await db.update(users).set({ xp: newXp }).where(eq(users.id, userId));
     await checkLevelUp(userId, oldXp, newXp);
@@ -126,7 +132,10 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
     await notifyAllOtherUsers(userId, 'new_post', newPost.id);
 
     // Update Quests
-    await updateQuestProgress(userId, 'POST');
+    const questSubType = (postType === 'challenge' || postType === 'help') ? 'POST_ACTION' : undefined;
+    await updateQuestProgress(userId, 'POST', questSubType);
+
+
 
     res.json(newPost);
   } catch (error) {
@@ -142,9 +151,9 @@ router.post('/:id/like', authenticateToken, async (req: AuthRequest, res) => {
     const { type = 'like' } = req.body;
 
     // Check if already liked
-    const existing = await db.select().from(likes).where(sql`${likes.postId} = ${postId} AND ${likes.userId} = ${userId}`);
-    if (existing.length > 0) {
-      const alreadyLikedWithType = existing[0].type;
+    const [existing] = await db.select().from(likes).where(sql`${likes.postId} = ${postId} AND ${likes.userId} = ${userId}`);
+    if (existing) {
+      const alreadyLikedWithType = existing.type;
       await db.delete(likes).where(sql`${likes.postId} = ${postId} AND ${likes.userId} = ${userId}`);
       
       // If user clicked a DIFFERENT reaction, add the new one instead of just unliking
@@ -158,17 +167,23 @@ router.post('/:id/like', authenticateToken, async (req: AuthRequest, res) => {
 
     await db.insert(likes).values({ postId, userId, type });
     
-    // Update Impact Score (+10 for like, +15 for others)
-    const scoreAdd = type === 'like' ? 10 : 15;
+    // Update Impact Score (+10 base, +25 for Bolt/Sparkle signals)
+    const isHighValue = type === 'bolt' || type === 'sparkle';
+    const scoreAdd = isHighValue ? 25 : 10;
     await db.update(posts).set({ impactScore: sql`${posts.impactScore} + ${scoreAdd}` }).where(eq(posts.id, postId));
 
-    // Reward XP and check Level Up
+    // Reward XP (+1 base, +5 for High Value signals)
     const [userRecord] = await db.select({ xp: users.xp }).from(users).where(eq(users.id, userId));
     const oldXp = userRecord?.xp || 0;
-    const newXp = oldXp + XP_REWARDS.LIKE;
+    
+    let xpAdd = XP_REWARDS.LIKE;
+    if (isHighValue) xpAdd += XP_REWARDS.HIGH_VALUE_REACTION;
+    
+    const newXp = oldXp + xpAdd;
     await db.update(users).set({ xp: newXp }).where(eq(users.id, userId));
     await checkLevelUp(userId, oldXp, newXp);
     await checkRankChange(userId);
+
 
 
     // Create notification for post owner
@@ -178,7 +193,9 @@ router.post('/:id/like', authenticateToken, async (req: AuthRequest, res) => {
     }
 
     // Update Quests
-    await updateQuestProgress(userId, 'LIKE');
+    const questSubType = type === 'bolt' ? 'SIGNAL_BOLT' : undefined;
+    await updateQuestProgress(userId, 'LIKE', questSubType);
+
 
     res.json({ liked: true, type });
   } catch (error) {

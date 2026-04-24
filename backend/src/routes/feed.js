@@ -5,86 +5,88 @@ import { authenticateToken } from '../middleware/auth.js';
 import { eq, or, sql, desc, ne, and } from 'drizzle-orm';
 import { XP_REWARDS } from '../utils/gamification.js';
 import { createNotification, notifyAllOtherUsers, checkLevelUp, checkRankChange } from '../utils/notifications.js';
+import { updateQuestProgress } from '../utils/quests.js';
 const router = express.Router();
-// Get Feed
+// Get following feed
 router.get('/', authenticateToken, async (req, res) => {
     try {
+        const userId = req.user.id;
+        // Fetch posts from users the current user follows (or all if no follows)
+        // For now, returning all posts as a simple feed
         const feedPosts = await db.select({
             id: posts.id,
+            caption: posts.caption,
             imageUrl: posts.imageUrl,
             videoUrl: posts.videoUrl,
             postType: posts.postType,
-            caption: posts.caption,
             themeName: posts.themeName,
+            impactScore: posts.impactScore,
             createdAt: posts.createdAt,
             user: {
                 id: users.id,
                 username: users.username,
                 avatarUrl: users.avatarUrl,
                 xp: users.xp
-            }
+            },
+            likes: sql `(SELECT COUNT(*) FROM ${likes} WHERE ${likes.postId} = ${posts.id})`,
+            comments: sql `(SELECT COUNT(*) FROM ${comments} WHERE ${comments.postId} = ${posts.id})`,
+            hasLiked: sql `EXISTS(SELECT 1 FROM ${likes} WHERE ${likes.postId} = ${posts.id} AND ${likes.userId} = ${userId})`,
+            reactionType: sql `(SELECT ${likes.type} FROM ${likes} WHERE ${likes.postId} = ${posts.id} AND ${likes.userId} = ${userId} LIMIT 1)`
         })
             .from(posts)
             .innerJoin(users, eq(posts.userId, users.id))
             .orderBy(desc(posts.createdAt))
-            .limit(20);
-        // Get likes and comments count for these posts
-        // Note: for simplicity in this prototype, doing N+1 or subqueries. We'll augment in memory.
-        const augmentedPosts = await Promise.all(feedPosts.map(async (p) => {
-            const [likeCount] = await db.select({ count: sql `count(*)` }).from(likes).where(eq(likes.postId, p.id));
-            const [commentCount] = await db.select({ count: sql `count(*)` }).from(comments).where(eq(comments.postId, p.id));
-            const hasLiked = await db.select().from(likes).where(sql `${likes.postId} = ${p.id} AND ${likes.userId} = ${req.user.id}`);
-            return {
-                ...p,
-                likes: Number(likeCount?.count ?? 0),
-                comments: Number(commentCount?.count ?? 0),
-                hasLiked: hasLiked.length > 0
-            };
-        }));
-        res.json(augmentedPosts);
+            .limit(50);
+        res.json(feedPosts.map(p => ({
+            ...p,
+            likes: Number(p.likes),
+            comments: Number(p.comments),
+            hasLiked: Boolean(p.hasLiked)
+        })));
     }
     catch (error) {
+        console.error('Feed error:', error);
         res.status(500).json({ error: 'Failed to fetch feed' });
     }
 });
-// Get Reels Only
-router.get('/reels', authenticateToken, async (req, res) => {
+// Get Trending / Breaking News (+ High Impact)
+router.get('/trending', authenticateToken, async (req, res) => {
     try {
-        console.log(`[REELS] User ${req.user.id} requested reels...`);
-        const reelsPosts = await db.select({
+        const userId = req.user.id;
+        const trendingPosts = await db.select({
             id: posts.id,
+            caption: posts.caption,
+            imageUrl: posts.imageUrl,
             videoUrl: posts.videoUrl,
             postType: posts.postType,
-            caption: posts.caption,
+            themeName: posts.themeName,
+            impactScore: posts.impactScore,
             createdAt: posts.createdAt,
             user: {
                 id: users.id,
                 username: users.username,
                 avatarUrl: users.avatarUrl,
                 xp: users.xp
-            }
+            },
+            likes: sql `(SELECT COUNT(*) FROM ${likes} WHERE ${likes.postId} = ${posts.id})`,
+            comments: sql `(SELECT COUNT(*) FROM ${comments} WHERE ${comments.postId} = ${posts.id})`,
+            hasLiked: sql `EXISTS(SELECT 1 FROM ${likes} WHERE ${likes.postId} = ${posts.id} AND ${likes.userId} = ${userId})`,
+            reactionType: sql `(SELECT ${likes.type} FROM ${likes} WHERE ${likes.postId} = ${posts.id} AND ${likes.userId} = ${userId} LIMIT 1)`
         })
             .from(posts)
             .innerJoin(users, eq(posts.userId, users.id))
-            .where(eq(posts.postType, 'reel'))
-            .orderBy(desc(posts.createdAt))
+            .where(or(eq(posts.postType, 'news'), sql `${posts.impactScore} > 50`))
+            .orderBy(desc(posts.impactScore), desc(posts.createdAt))
             .limit(20);
-        console.log(`[REELS] Found ${reelsPosts.length} reels in DB.`);
-        const augmentedReels = await Promise.all(reelsPosts.map(async (p) => {
-            const [likeCount] = await db.select({ count: sql `count(*)` }).from(likes).where(eq(likes.postId, p.id));
-            const [commentCount] = await db.select({ count: sql `count(*)` }).from(comments).where(eq(comments.postId, p.id));
-            const hasLiked = await db.select().from(likes).where(sql `${likes.postId} = ${p.id} AND ${likes.userId} = ${req.user.id}`);
-            return {
-                ...p,
-                likes: Number(likeCount?.count ?? 0),
-                comments: Number(commentCount?.count ?? 0),
-                hasLiked: hasLiked.length > 0
-            };
-        }));
-        res.json(augmentedReels);
+        res.json(trendingPosts.map(p => ({
+            ...p,
+            likes: Number(p.likes),
+            comments: Number(p.comments),
+            hasLiked: Boolean(p.hasLiked)
+        })));
     }
     catch (error) {
-        res.status(500).json({ error: 'Failed to fetch reels' });
+        res.status(500).json({ error: 'Failed to fetch trending' });
     }
 });
 // Create Post (+10 XP)
@@ -102,15 +104,22 @@ router.post('/', authenticateToken, async (req, res) => {
         }).returning();
         if (!newPost)
             throw new Error('Post creation failed');
-        // Reward XP
+        // Reward XP - More XP for "Action" post types (Challenges/Help)
         const [user] = await db.select({ xp: users.xp }).from(users).where(eq(users.id, userId));
         const oldXp = user?.xp || 0;
-        const newXp = oldXp + XP_REWARDS.POST;
+        let reward = XP_REWARDS.POST;
+        if (postType === 'challenge' || postType === 'help') {
+            reward += XP_REWARDS.ACTION_POST_BONUS;
+        }
+        const newXp = oldXp + reward;
         await db.update(users).set({ xp: newXp }).where(eq(users.id, userId));
         await checkLevelUp(userId, oldXp, newXp);
         await checkRankChange(userId);
         // Global Notification
         await notifyAllOtherUsers(userId, 'new_post', newPost.id);
+        // Update Quests
+        const questSubType = (postType === 'challenge' || postType === 'help') ? 'POST_ACTION' : undefined;
+        await updateQuestProgress(userId, 'POST', questSubType);
         res.json(newPost);
     }
     catch (error) {
@@ -122,17 +131,31 @@ router.post('/:id/like', authenticateToken, async (req, res) => {
     try {
         const postId = Number(req.params.id);
         const userId = req.user.id;
+        const { type = 'like' } = req.body;
         // Check if already liked
-        const existing = await db.select().from(likes).where(sql `${likes.postId} = ${postId} AND ${likes.userId} = ${userId}`);
-        if (existing.length > 0) {
+        const [existing] = await db.select().from(likes).where(sql `${likes.postId} = ${postId} AND ${likes.userId} = ${userId}`);
+        if (existing) {
+            const alreadyLikedWithType = existing.type;
             await db.delete(likes).where(sql `${likes.postId} = ${postId} AND ${likes.userId} = ${userId}`);
+            // If user clicked a DIFFERENT reaction, add the new one instead of just unliking
+            if (alreadyLikedWithType !== type) {
+                await db.insert(likes).values({ postId, userId, type });
+                return res.json({ liked: true, type });
+            }
             return res.json({ liked: false });
         }
-        await db.insert(likes).values({ postId, userId });
-        // Reward XP and check Level Up
+        await db.insert(likes).values({ postId, userId, type });
+        // Update Impact Score (+10 base, +25 for Bolt/Sparkle signals)
+        const isHighValue = type === 'bolt' || type === 'sparkle';
+        const scoreAdd = isHighValue ? 25 : 10;
+        await db.update(posts).set({ impactScore: sql `${posts.impactScore} + ${scoreAdd}` }).where(eq(posts.id, postId));
+        // Reward XP (+1 base, +5 for High Value signals)
         const [userRecord] = await db.select({ xp: users.xp }).from(users).where(eq(users.id, userId));
         const oldXp = userRecord?.xp || 0;
-        const newXp = oldXp + XP_REWARDS.LIKE;
+        let xpAdd = XP_REWARDS.LIKE;
+        if (isHighValue)
+            xpAdd += XP_REWARDS.HIGH_VALUE_REACTION;
+        const newXp = oldXp + xpAdd;
         await db.update(users).set({ xp: newXp }).where(eq(users.id, userId));
         await checkLevelUp(userId, oldXp, newXp);
         await checkRankChange(userId);
@@ -141,7 +164,10 @@ router.post('/:id/like', authenticateToken, async (req, res) => {
         if (post && post.userId !== userId) {
             await createNotification(post.userId, userId, 'like', postId);
         }
-        res.json({ liked: true });
+        // Update Quests
+        const questSubType = type === 'bolt' ? 'SIGNAL_BOLT' : undefined;
+        await updateQuestProgress(userId, 'LIKE', questSubType);
+        res.json({ liked: true, type });
     }
     catch (error) {
         res.status(500).json({ error: 'Failed to like post' });
@@ -160,6 +186,8 @@ router.post('/:id/comment', authenticateToken, async (req, res) => {
         }).returning();
         if (!newComment)
             throw new Error('Comment creation failed');
+        // Update Impact Score (+25 for comment)
+        await db.update(posts).set({ impactScore: sql `${posts.impactScore} + 25` }).where(eq(posts.id, postId));
         // Reward XP and check Level Up
         const [userRecord] = await db.select({ xp: users.xp }).from(users).where(eq(users.id, userId));
         const oldXp = userRecord?.xp || 0;
@@ -172,11 +200,39 @@ router.post('/:id/comment', authenticateToken, async (req, res) => {
         if (post && post.userId !== userId) {
             await createNotification(post.userId, userId, 'comment', postId);
         }
+        // Update Quests
+        await updateQuestProgress(userId, 'COMMENT');
         res.json(newComment);
     }
     catch (error) {
         console.error('Comment error:', error);
         res.status(500).json({ error: 'Failed to comment' });
+    }
+});
+// Get comments for a post
+router.get('/:id/comments', authenticateToken, async (req, res) => {
+    try {
+        const postId = Number(req.params.id);
+        const postComments = await db.select({
+            id: comments.id,
+            content: comments.content,
+            createdAt: comments.createdAt,
+            user: {
+                id: users.id,
+                username: users.username,
+                avatarUrl: users.avatarUrl,
+                xp: users.xp
+            }
+        })
+            .from(comments)
+            .innerJoin(users, eq(comments.userId, users.id))
+            .where(eq(comments.postId, postId))
+            .orderBy(desc(comments.createdAt));
+        res.json(postComments);
+    }
+    catch (error) {
+        console.error('Fetch comments error:', error);
+        res.status(500).json({ error: 'Failed to fetch comments' });
     }
 });
 // Share (+2 XP)
